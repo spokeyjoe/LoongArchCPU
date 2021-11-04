@@ -7,6 +7,9 @@ module mycpu_top(
     output [31:0] inst_sram_addr,
     output [31:0] inst_sram_wdata,
     input  [31:0] inst_sram_rdata,
+    output [ 1:0] inst_sram_size,
+    input         inst_sram_addr_ok,
+    input         inst_sram_data_ok,
     // data sram interface
     output        data_sram_en,
     output [ 3:0] data_sram_wen,
@@ -41,10 +44,10 @@ wire [57                 :0] ms_forward;
 wire [122                :0] ws_forward;
 wire                         final_ex;
 wire [66                 :0] ws_to_fs_bus;
-wire back_ertn_flush;
-wire back_ex;
-wire [63:0] counter;
-wire ms_ertn_flush;
+wire                         back_ertn_flush;
+wire                         back_ex;
+wire [63                 :0] counter;
+wire                         ms_ertn_flush;
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -67,7 +70,10 @@ if_stage if_stage(
     .ms_forward     (ms_forward     ),
     .ws_forward     (ws_forward     ),
     .back_ertn_flush(back_ertn_flush),
-    .back_ex        (back_ex        )
+    .back_ex        (back_ex        ),
+    .inst_sram_size (inst_sram_size ),
+    .inst_sram_addr_ok(inst_sram_addr_ok),
+    .inst_sram_data_ok(inst_sram_data_ok)
 );
 // ID stage
 id_stage id_stage(
@@ -115,7 +121,7 @@ exe_stage exe_stage(
     .es_forward     (es_forward     ),
     .ms_ertn_flush  (ms_ertn_flush  ),
     // counter from ws
-    .es_counter     (counter),
+    .es_counter     (counter        ),
     .back_ertn_flush(back_ertn_flush),
     .back_ex        (back_ex        )
 );

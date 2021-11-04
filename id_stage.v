@@ -278,7 +278,7 @@ wire raw5;
 wire raw6;
 wire raw;
 
-
+wire br_stall;
 /* ------------------------------------------  ASSIGNMENTS ------------------------------------------ */
 
 
@@ -479,14 +479,14 @@ assign  csr_block =  es_csr_block & (raw1 | raw4)
 assign  ds_ready_go  = !(es_valid && es_res_from_mem && (raw1 || raw4)) &&
                         !(!final_ex && ((es_valid && es_ex) || (ms_valid && ms_ex) || (ws_valid && ws_ex)) && ds_valid) &&
                         !(ds_valid && csr_block) &&
-                        !(has_int && (
-                        (es_valid && (es_ertn_flush || (es_csr_we && (es_csr_num == `CSR_CRMD || es_csr_num == `CSR_ECFG )))) || 
+                        !(has_int && ((es_valid && (es_ertn_flush || (es_csr_we && (es_csr_num == `CSR_CRMD || es_csr_num == `CSR_ECFG )))) || 
                         (ms_valid && (ms_ertn_flush || (ms_csr_we && (ms_csr_num == `CSR_CRMD || ms_csr_num == `CSR_ECFG )))) ||
                         (ws_valid && (ws_ertn_flush || (ws_csr_we && (ws_csr_num == `CSR_CRMD || ws_csr_num == `CSR_ECFG ))))
                         )) && ~csr_block;
 
-
-
+/* ------------------- lab10 ------------------- */
+assign br_stall = es_res_from_mem && need_si16 && (raw1 || raw4)
+               || ms_res_from_mem && need_si16 && (raw2 || raw5);
 
 /* ------------------- BUS ------------------- */
 
@@ -511,7 +511,7 @@ assign {rf_we   ,  //37:37
        } = ws_to_rf_bus;
 
 // BR bus
-assign br_bus       = {br_taken,br_target};
+assign br_bus       = {br_stall,br_taken,br_target};
 
 // ES forward bus
 assign  {es_csr_block,
