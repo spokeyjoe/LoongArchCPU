@@ -66,6 +66,9 @@ always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;
     end
+    else if (final_ex) begin //代替cancel?
+        fs_valid <= 1'b0;
+    end
     else if (fs_allowin) begin
         fs_valid <= to_fs_valid;
     end
@@ -76,7 +79,7 @@ end
 assign to_fs_valid    = ~reset && ps_ready_go;//lab10
 
 // IF stage
-assign fs_ready_go    = (inst_sram_data_ok || fs_inst_buf_valid) && ~cancle; //lab10
+assign fs_ready_go    = (inst_sram_data_ok || fs_inst_buf_valid) && ~final_ex && ~abandon_valid;//~cancel; //lab10
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin || final_ex;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go && ~br_taken;
 
@@ -97,10 +100,11 @@ end
 assign ps_ready_go = inst_sram_en && inst_sram_addr_ok;//????fs_ex
 reg [31:0] fs_inst_buf;
 reg        fs_inst_buf_valid;
-reg        cancle;
+//reg        cancel;
 reg        br_taken_buf;
 reg [31:0] nextpc_buf;
 reg        ex_buf_valid;
+reg        abandon_valid;
 always @(posedge clk) begin
     if(reset) begin
         fs_inst_buf <= 32'b0; 
@@ -121,19 +125,19 @@ always @(posedge clk) begin
         fs_inst_buf_valid <= 1'b0;
     end
 end
-
+/*
 always@(posedge clk) begin
     if(reset) begin
-        cancle <= 1'b0;
+        cancel <= 1'b0;
     end
     else if(inst_sram_data_ok) begin
-        cancle <= 1'b0;
-    end 
+        cancel <= 1'b0;
+    end
     else if(final_ex && ~fs_ex && ~(inst_sram_en && inst_sram_addr_ok)) begin
-        cancle <= 1'b1;
+        cancel <= 1'b1;
     end
 end
-
+*/
 always @(posedge clk)begin
     if(reset) begin
         br_taken_buf <= 1'b0;
@@ -157,6 +161,7 @@ always @(posedge clk) begin
         ex_buf_valid <= 1'b1;
     end
 end
+
 always @(posedge clk) begin
     if(reset) begin
         nextpc_buf <= 32'b0;
@@ -166,6 +171,17 @@ always @(posedge clk) begin
     end
 end
 
+always @(posedge clk) begin
+    if(reset) begin
+        abandon_valid <= 1'b0;
+    end
+    else if(inst_sram_data_ok) begin
+        abandon_valid <= 1'b0;
+    end
+    else if(to_fs_valid || (~fs_allowin)&&(~fs_ready_go)) begin
+        abandon_valid <= 1'b1;
+    end
+end
 assign inst_sram_size = 2'b10;
 // Sram interface
 assign inst_sram_en    = to_fs_valid && fs_allowin && ~adef_ex && ~br_stall;  //req

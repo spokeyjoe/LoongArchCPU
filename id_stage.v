@@ -472,11 +472,12 @@ always @(posedge clk) begin
     end
 end
 
+assign  load_block = es_valid && es_res_from_mem && (raw1 || raw4);
 assign  csr_block =  es_csr_block & (raw1 | raw4)
                    | ms_csr_block & (raw2 | raw5) 
                    | ws_valid & ws_csr_re & (raw3 | raw6) ;
                 
-assign  ds_ready_go  = !(es_valid && es_res_from_mem && (raw1 || raw4)) &&
+assign  ds_ready_go  = !load_block &&
                         !(!final_ex && ((es_valid && es_ex) || (ms_valid && ms_ex) || (ws_valid && ws_ex)) && ds_valid) &&
                         !(ds_valid && csr_block) &&
                         !(has_int && ((es_valid && (es_ertn_flush || (es_csr_we && (es_csr_num == `CSR_CRMD || es_csr_num == `CSR_ECFG )))) || 
