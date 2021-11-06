@@ -14,16 +14,18 @@ module exe_stage(
     output                         es_to_ms_valid,
     output [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
     // data sram interface
-    output                         data_sram_en  ,
+    output                         data_sram_en   ,
     output [                  3:0] data_sram_wen  ,
     output [                 31:0] data_sram_addr ,
     output [                 31:0] data_sram_wdata,
-    output [                 58:0] es_forward,
+    output [                  1:0] data_sram_size ,
+    input                          data_sram_addr_ok,
+    output [                 58:0] es_forward     ,
     // counter
-    input  [                 63:0] es_counter,
-    input  ms_ertn_flush,
-    input  back_ertn_flush,
-    input  back_ex
+    input  [                 63:0] es_counter     ,
+    input                          ms_ertn_flush  ,
+    input                          back_ertn_flush,
+    input                          back_ex
 );
 
 /* --------------  Handshaking signals -------------- */
@@ -142,7 +144,7 @@ assign es_csr_block = es_valid & es_csr_re;
 
 /* --------------  Handshaking signals -------------- */
 
-assign es_ready_go    = alu_ready_go; 
+assign es_ready_go    = alu_ready_go && (data_sram_en && data_sram_addr_ok) ; 
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go && ~final_ex;//!!!
 
@@ -249,6 +251,11 @@ assign es_forward      = {es_csr_block,
 assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid 
                       && ~back_ertn_flush && ~ms_ertn_flush && ~ale_ex
                       && ms_allowin;
+
+assign data_sram_size  = {2{es_op_st_b || es_op_ld_b || es_op_ld_bu}} & 2'b00 |
+                         {2{es_op_st_h || es_op_ld_h || es_op_ld_hu}} & 2'b01 |
+                         {2{es_op_st_w || es_op_ld_w}}                & 2'b10;
+
 
 // Change in Lab 7
 assign es_addr00 = data_sram_addr[1:0] == 2'b00;

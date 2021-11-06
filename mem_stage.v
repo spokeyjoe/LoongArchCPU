@@ -15,6 +15,8 @@ module mem_stage(
     output [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
     //from data-sram
     input  [31                 :0] data_sram_rdata,
+    input                          data_sram_data_ok,
+
     output [57                 :0] ms_forward,
     input  back_ertn_flush,
     output ms_ertn_flush,
@@ -85,9 +87,11 @@ wire [ 5:0] ms_ecode;
 wire        ms_ex;
 
 
+/* --------------  Abandon  -------------- */
+reg ms_abandon;
 
 /* --------------  Handshaking signals -------------- */
-assign ms_ready_go    = 1'b1;
+assign ms_ready_go    = (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go && ~final_ex;
 
@@ -175,21 +179,45 @@ assign ms_forward = {ms_csr_block,
 
 assign ms_vaddr = ms_alu_result;
 
+// SRAM data buffer
+reg  [32:0] data_sram_rdata_buf;
+reg        data_sram_rdata_buf_valid;
+wire [32:0] final_data_sram_rdata;
+
+always @(posedge clk) begin
+    if (reset)
+        data_sram_rdata_buf <= 32'b0;
+    else if (data_sram_data_ok && ~ws_allowin)      // If data is back, WB stage do not allow in
+                                                    // Then write it into buffer, wait for allowin to rise
+        data_sram_rdata_buf <= data_sram_rdata;
+end
+
+always @(posedge clk) begin
+    if (reset)
+        data_sram_rdata_buf_valid <= 1'b0;
+    else if (data_sram_data_ok && ~ws_allowin)
+        data_sram_rdata_buf_valid <= 1'b1;
+    else if (ms_to_ws_valid && ws_allowin)
+        data_sram_rdata_buf_valid <= 1'b0;
+end
+
+assign final_data_sram_rdata = data_sram_rdata_buf_valid ? data_sram_rdata_buf : data_sram_rdata;
+
 // mem_byte_data mux 
 assign addr00 = ms_addr_lowbits == 2'b00;
 assign addr01 = ms_addr_lowbits == 2'b01;
 assign addr10 = ms_addr_lowbits == 2'b10;
 assign addr11 = ms_addr_lowbits == 2'b11;
-assign mem_byte_data = {8{addr00}} & data_sram_rdata[7:0]   |
-                       {8{addr01}} & data_sram_rdata[15:8]  |
-                       {8{addr10}} & data_sram_rdata[23:16] |
-                       {8{addr11}} & data_sram_rdata[31:24];
+assign mem_byte_data = {8{addr00}} & final_data_sram_rdata[7:0]   |
+                       {8{addr01}} & final_data_sram_rdata[15:8]  |
+                       {8{addr10}} & final_data_sram_rdata[23:16] |
+                       {8{addr11}} & final_data_sram_rdata[31:24];
 
 // mem_halfword_data mux
-assign mem_halfword_data = {16{addr00}} & data_sram_rdata[15:0] |
-                           {16{addr10}} & data_sram_rdata[31:16];
+assign mem_halfword_data = {16{addr00}} & final_data_sram_rdata[15:0] |
+                           {16{addr10}} & final_data_sram_rdata[31:16];
 // mem_result mux
-assign mem_result = {32{ms_op_ld_w}}  & data_sram_rdata                                 |
+assign mem_result = {32{ms_op_ld_w}}  & final_data_sram_rdata                                 |
                     {32{ms_op_ld_b}}  & {{24{mem_byte_data[7]}}, mem_byte_data}         |
                     {32{ms_op_ld_bu}} & {24'b0, mem_byte_data}                          |
                     {32{ms_op_ld_h}}  & {{16{mem_halfword_data[15]}}, mem_halfword_data}|
@@ -199,6 +227,16 @@ assign mem_result = {32{ms_op_ld_w}}  & data_sram_rdata                         
 assign ms_final_result = ms_res_from_mem ? mem_result : ms_alu_result;
 
 
+
+/* --------------  Abandon  -------------- */
+always @(posedge clk) begin
+    if (reset)
+        ms_abandon <= 1'b0;
+    else if (data_sram_data_ok)
+        ms_abandon <= 1'b0;
+    else if (final_ex && (es_to_ms_valid || ~ws_allowin && ~ms_ready_go))
+        ms_abandon <= 1'b1;
+end
 
 /* --------------  CSR instructions  -------------- */
 
