@@ -108,6 +108,8 @@ reg        br_taken_buf;
 reg [31:0] nextpc_buf;
 reg        ex_buf_valid;
 reg        fs_abandon;
+reg mid_handshake;
+
 always @(posedge clk) begin
     if(reset) begin
         fs_inst_buf <= 32'b0; 
@@ -188,7 +190,7 @@ end
 
 assign inst_sram_size = 2'b10;
 // Sram interface
-assign inst_sram_req    = to_fs_valid && fs_allowin && ~adef_ex && ~br_stall;  //req
+assign inst_sram_req    = fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake;  //req
 assign inst_sram_wstrb  = 4'h0;  //wstrb
 assign inst_sram_addr   = nextpc;
 assign inst_sram_wdata  = 32'b0;
@@ -199,6 +201,19 @@ assign fs_ecode        = adef_ex ? `ECODE_ADE : 6'b0;
 assign fs_ex           = adef_ex;
 assign adef_ex         = ~(nextpc[1:0] == 2'b00);
 
+
+// Waiting for response state
+// This state will occur after first handshake occurs
+// and will disappear when second handshake arrives
+
+always @(posedge clk) begin
+    if (reset)
+        mid_handshake <= 1'b0;
+    else if (inst_sram_data_ok)
+        mid_handshake <= 1'b0;
+    else if (inst_sram_req && inst_sram_addr_ok)
+        mid_handshake <= 1'b1;
+end
 
 assign  {has_int,   //66
          ex_era,    //65:34
