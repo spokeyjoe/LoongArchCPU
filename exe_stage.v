@@ -54,6 +54,7 @@ wire        es_op_st_b    ;
 wire        es_op_st_h    ;
 wire        es_op_st_w    ;
 wire        es_res_from_mem;
+wire        es_op_mem = es_op_ld_w ||es_op_ld_b || es_op_ld_bu || es_op_ld_h || es_op_ld_hu || es_op_st_b || es_op_st_h || es_op_st_w;
 
 wire        es_addr00;
 wire        es_addr01;
@@ -145,7 +146,7 @@ assign es_csr_block = es_valid & es_csr_re;
 
 /* --------------  Handshaking signals -------------- */
 
-assign es_ready_go    = alu_ready_go && (data_sram_req && data_sram_addr_ok) ; 
+assign es_ready_go    = ~es_op_mem ? alu_ready_go : alu_ready_go && (data_sram_req && data_sram_addr_ok) ; 
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go && ~final_ex;//!!!
 
@@ -204,7 +205,8 @@ assign  es_pc             //31 :0
         = ds_to_es_bus_r[31:0];
 
 // ES to MS bus
-assign es_to_ms_bus = {es_inst_rdcntid,  //169
+assign es_to_ms_bus = {es_op_st_w     ,  //170
+                       es_inst_rdcntid,  //169
                        es_ertn_flush  ,  //168
                        es_esubcode    ,  //167
                        es_ecode       ,  //166:161

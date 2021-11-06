@@ -39,7 +39,7 @@ reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
 
 
 /* --------------  MEM related  -------------- */
-
+wire        ms_op_st_w;
 wire        ms_op_ld_w;
 wire        ms_op_ld_b;
 wire        ms_op_ld_bu;
@@ -47,6 +47,7 @@ wire        ms_op_ld_h;
 wire        ms_op_ld_hu;
 wire        ms_op_st_b;
 wire        ms_op_st_h;
+wire        ms_op_mem = ms_op_st_w || ms_op_st_h || ms_op_st_b || ms_op_ld_w || ms_op_ld_hu || ms_op_ld_h || ms_op_ld_bu || ms_op_ld_b;
 
 wire        ms_res_from_mem;
 wire        ms_gr_we;
@@ -91,7 +92,7 @@ wire        ms_ex;
 reg ms_abandon;
 
 /* --------------  Handshaking signals -------------- */
-assign ms_ready_go    = (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon;
+assign ms_ready_go    = ms_op_mem ? (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon : 1'b1;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go && ~final_ex;
 
@@ -114,7 +115,8 @@ always @(posedge clk) begin
     end
 end
 
-assign {ms_inst_rdcntid,  //169
+assign {ms_op_st_w     ,  //170
+        ms_inst_rdcntid,  //169
         ms_ertn_flush  ,  //168
         ms_esubcode    ,  //167
         ms_ecode       ,  //166:161
@@ -232,9 +234,9 @@ assign ms_final_result = ms_res_from_mem ? mem_result : ms_alu_result;
 always @(posedge clk) begin
     if (reset)
         ms_abandon <= 1'b0;
-    else if (data_sram_data_ok)
+    else if (ms_op_mem && data_sram_data_ok)
         ms_abandon <= 1'b0;
-    else if (final_ex && (es_to_ms_valid || ~ws_allowin && ~ms_ready_go))
+    else if (ms_op_mem && final_ex && (es_to_ms_valid || ~ws_allowin && ~ms_ready_go))
         ms_abandon <= 1'b1;
 end
 

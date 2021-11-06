@@ -64,8 +64,6 @@ wire [63:0] sr64_result;
 wire [31:0] sr_result;
 //Add in lab6
 wire [65:0] mul_result; //33*33 for mulh.w, mulh.wu
-wire [63:0] signed_div_result;
-wire [63:0] unsigned_div_result;
 wire [32:0] mul_a;
 wire [32:0] mul_b;
 

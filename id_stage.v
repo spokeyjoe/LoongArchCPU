@@ -198,7 +198,7 @@ wire        es_csr_block;
 // MS forward bus
 wire        ms_ertn_flush;
 wire        ms_ex;
-wire        ms_res_from_mem;
+//wire        ms_res_from_mem;
 wire [31:0] ms_final_result;
 wire [13:0] ms_csr_num;
 wire        ms_csr_re;
@@ -467,6 +467,8 @@ always @(posedge clk) begin
     if (reset | final_ex | ws_ertn_flush) begin
         ds_valid <= 1'b0;
     end
+    else if (br_taken)
+        ds_valid <= 1'b0;
     else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
     end
@@ -486,8 +488,8 @@ assign  ds_ready_go  = !load_block &&
                         )) && ~csr_block;
 
 /* ------------------- lab10 ------------------- */
-assign br_stall = es_res_from_mem && need_si16 && (raw1 || raw4)
-               || ms_res_from_mem && need_si16 && (raw2 || raw5);
+assign br_stall = es_valid && es_res_from_mem && (need_si16 && (raw1 || raw4)
+               || need_si16 && (raw2 || raw5));
 
 /* ------------------- BUS ------------------- */
 

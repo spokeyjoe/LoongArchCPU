@@ -39,7 +39,7 @@ wire        ps_ready_go;
 wire [31:0] seq_pc;
 wire [31:0] nextpc;
 reg  [31:0] fs_pc;
-
+wire [31:0] final_nextpc;
 // Ws to fs bus
 wire [31:0] ex_entry;
 wire        final_ex;
@@ -192,14 +192,14 @@ assign inst_sram_size = 2'b10;
 // Sram interface
 assign inst_sram_req    = fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake;  //req
 assign inst_sram_wstrb  = 4'h0;  //wstrb
-assign inst_sram_addr   = nextpc;
+assign inst_sram_addr   = final_nextpc;
 assign inst_sram_wdata  = 32'b0;
 assign inst_sram_wr     = 1'b0;
 // Exception
 assign fs_esubcode     = adef_ex ? `ESUBCODE_ADEF : 1'b0;
 assign fs_ecode        = adef_ex ? `ECODE_ADE : 6'b0;
 assign fs_ex           = adef_ex;
-assign adef_ex         = ~(nextpc[1:0] == 2'b00);
+assign adef_ex         = ~(final_nextpc[1:0] == 2'b00);
 
 
 // Waiting for response state
