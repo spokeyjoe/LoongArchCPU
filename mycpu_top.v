@@ -2,20 +2,25 @@ module mycpu_top(
     input         clk,
     input         resetn,
     // inst sram interface
-    output        inst_sram_en,
-    output [ 3:0] inst_sram_wen,
+    output        inst_sram_req,
+    output [ 3:0] inst_sram_wstrb,
     output [31:0] inst_sram_addr,
     output [31:0] inst_sram_wdata,
     input  [31:0] inst_sram_rdata,
     output [ 1:0] inst_sram_size,
     input         inst_sram_addr_ok,
     input         inst_sram_data_ok,
+    output        inst_sram_wr,
     // data sram interface
-    output        data_sram_en,
-    output [ 3:0] data_sram_wen,
+    output        data_sram_req,
+    output [ 3:0] data_sram_wstrb,
     output [31:0] data_sram_addr,
     output [31:0] data_sram_wdata,
     input  [31:0] data_sram_rdata,
+    output [ 1:0] data_sram_size,
+    input         data_sram_addr_ok,
+    input         data_sram_data_ok,
+    output        data_sram_wr,
     // trace debug interface
     output [31:0] debug_wb_pc,
     output [ 3:0] debug_wb_rf_wen,
@@ -60,8 +65,8 @@ if_stage if_stage(
     .fs_to_ds_valid (fs_to_ds_valid ),
     .fs_to_ds_bus   (fs_to_ds_bus   ),
     // inst sram interface
-    .inst_sram_en   (inst_sram_en   ),
-    .inst_sram_wen  (inst_sram_wen  ),
+    .inst_sram_req   (inst_sram_req   ),
+    .inst_sram_wstrb  (inst_sram_wstrb  ),
     .inst_sram_addr (inst_sram_addr ),
     .inst_sram_wdata(inst_sram_wdata),
     .inst_sram_rdata(inst_sram_rdata),
@@ -73,7 +78,8 @@ if_stage if_stage(
     .back_ex        (back_ex        ),
     .inst_sram_size (inst_sram_size ),
     .inst_sram_addr_ok(inst_sram_addr_ok),
-    .inst_sram_data_ok(inst_sram_data_ok)
+    .inst_sram_data_ok(inst_sram_data_ok),
+    .inst_sram_wr   (inst_sram_wr)
 );
 // ID stage
 id_stage id_stage(
@@ -114,8 +120,8 @@ exe_stage exe_stage(
     .es_to_ms_valid (es_to_ms_valid ),
     .es_to_ms_bus   (es_to_ms_bus   ),
     // data sram interface
-    .data_sram_en   (data_sram_en   ),
-    .data_sram_wen  (data_sram_wen  ),
+    .data_sram_req  (data_sram_req   ),
+    .data_sram_wstrb(data_sram_wstrb  ),
     .data_sram_addr (data_sram_addr ),
     .data_sram_wdata(data_sram_wdata),
     .es_forward     (es_forward     ),
@@ -123,7 +129,10 @@ exe_stage exe_stage(
     // counter from ws
     .es_counter     (counter        ),
     .back_ertn_flush(back_ertn_flush),
-    .back_ex        (back_ex        )
+    .back_ex        (back_ex        ),
+    .data_sram_size (data_sram_size ),
+    .data_sram_addr_ok(data_sram_addr_ok),
+    .data_sram_wr   (data_sram_wr)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -141,6 +150,7 @@ mem_stage mem_stage(
     .ms_to_ws_bus   (ms_to_ws_bus   ),
     //from data-sram
     .data_sram_rdata(data_sram_rdata),
+    .data_sram_data_ok(data_sram_data_ok),
     .ms_forward     (ms_forward     ),
     .back_ertn_flush(back_ertn_flush),
     .ms_ertn_flush  (ms_ertn_flush  ),

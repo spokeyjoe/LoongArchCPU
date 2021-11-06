@@ -11,8 +11,8 @@ module if_stage(
     output                         fs_to_ds_valid ,
     output [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus   ,
     // inst sram interface
-    output                         inst_sram_en   ,
-    output [                  3:0] inst_sram_wen  ,
+    output                         inst_sram_req  ,
+    output [                  3:0] inst_sram_wstrb,
     output [                 31:0] inst_sram_addr ,
     output [                 31:0] inst_sram_wdata,
     input  [                 31:0] inst_sram_rdata,
@@ -24,7 +24,8 @@ module if_stage(
     input                          back_ex,
     output [                  1:0] inst_sram_size,//0: 1bytes; 1: 2bytes; 2: 4bytes
     input                          inst_sram_addr_ok,
-    input                          inst_sram_data_ok
+    input                          inst_sram_data_ok,
+    output                         inst_sram_wr
 );
 
 // Handshake signals
@@ -98,7 +99,7 @@ always @(posedge clk) begin
 end
 
 /* -------------------  lab 10 ------------------- */
-assign ps_ready_go = inst_sram_en && inst_sram_addr_ok;//????fs_ex
+assign ps_ready_go = inst_sram_req && inst_sram_addr_ok;//????fs_ex
 
 reg [31:0] fs_inst_buf;
 reg        fs_inst_buf_valid;
@@ -135,7 +136,7 @@ always@(posedge clk) begin
     else if(inst_sram_data_ok) begin
         cancel <= 1'b0;
     end 
-    else if(final_ex && ~fs_ex && ~(inst_sram_en && inst_sram_addr_ok)) begin
+    else if(final_ex && ~fs_ex && ~(inst_sram_req && inst_sram_addr_ok)) begin
         cancel <= 1'b1;
     end
 end
@@ -144,7 +145,7 @@ always @(posedge clk)begin
     if(reset) begin
         br_taken_buf <= 1'b0;
     end
-    else if(inst_sram_en && inst_sram_addr_ok && fs_allowin) begin
+    else if(inst_sram_req && inst_sram_addr_ok && fs_allowin) begin
         br_taken_buf <= 1'b0;
     end 
     else if(br_taken && ~br_stall) begin
@@ -156,7 +157,7 @@ always @(posedge clk) begin
     if(reset) begin
         ex_buf_valid <= 1'b0;
     end
-    else if(inst_sram_en && inst_sram_addr_ok && fs_allowin) begin
+    else if(inst_sram_req && inst_sram_addr_ok && fs_allowin) begin
         ex_buf_valid <= 1'b0;
     end
     else if(final_ex) begin
@@ -187,11 +188,11 @@ end
 
 assign inst_sram_size = 2'b10;
 // Sram interface
-assign inst_sram_en    = to_fs_valid && fs_allowin && ~adef_ex && ~br_stall;  //req
-assign inst_sram_wen   = 4'h0;  //wstrb
-assign inst_sram_addr  = nextpc;
-assign inst_sram_wdata = 32'b0;
-
+assign inst_sram_req    = to_fs_valid && fs_allowin && ~adef_ex && ~br_stall;  //req
+assign inst_sram_wstrb  = 4'h0;  //wstrb
+assign inst_sram_addr   = nextpc;
+assign inst_sram_wdata  = 32'b0;
+assign inst_sram_wr     = 1'b0;
 // Exception
 assign fs_esubcode     = adef_ex ? `ESUBCODE_ADEF : 1'b0;
 assign fs_ecode        = adef_ex ? `ECODE_ADE : 6'b0;

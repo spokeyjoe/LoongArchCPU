@@ -14,8 +14,9 @@ module exe_stage(
     output                         es_to_ms_valid,
     output [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
     // data sram interface
-    output                         data_sram_en   ,
-    output [                  3:0] data_sram_wen  ,
+    output                         data_sram_req  ,
+    output                         data_sram_wr   ,
+    output [                  3:0] data_sram_wstrb,
     output [                 31:0] data_sram_addr ,
     output [                 31:0] data_sram_wdata,
     output [                  1:0] data_sram_size ,
@@ -59,7 +60,7 @@ wire        es_addr01;
 wire        es_addr10;
 wire        es_addr11;
 
-wire [3:0] data_sram_wen_sp;
+wire [3:0] data_sram_wstrb_sp;
 
 
 
@@ -144,7 +145,7 @@ assign es_csr_block = es_valid & es_csr_re;
 
 /* --------------  Handshaking signals -------------- */
 
-assign es_ready_go    = alu_ready_go && (data_sram_en && data_sram_addr_ok) ; 
+assign es_ready_go    = alu_ready_go && (data_sram_req && data_sram_addr_ok) ; 
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go && ~final_ex;//!!!
 
@@ -248,7 +249,7 @@ assign es_forward      = {es_csr_block,
 
 /* --------------  MEM write interface  -------------- */
 
-assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid 
+assign data_sram_req    = (es_res_from_mem || es_mem_we) && es_valid 
                       && ~back_ertn_flush && ~ms_ertn_flush && ~ale_ex
                       && ms_allowin;
 
@@ -262,7 +263,7 @@ assign es_addr00 = data_sram_addr[1:0] == 2'b00;
 assign es_addr01 = data_sram_addr[1:0] == 2'b01;
 assign es_addr10 = data_sram_addr[1:0] == 2'b10;
 assign es_addr11 = data_sram_addr[1:0] == 2'b11;
-assign data_sram_wen_sp= {4{es_op_st_b && es_addr00}} & 4'b0001 |
+assign data_sram_wstrb_sp= {4{es_op_st_b && es_addr00}} & 4'b0001 |
                          {4{es_op_st_b && es_addr01}} & 4'b0010 |
                          {4{es_op_st_b && es_addr10}} & 4'b0100 |
                          {4{es_op_st_b && es_addr11}} & 4'b1000 |
@@ -270,12 +271,12 @@ assign data_sram_wen_sp= {4{es_op_st_b && es_addr00}} & 4'b0001 |
                          {4{es_op_st_h && es_addr10}} & 4'b1100 |
                          {4{es_op_st_w}}              & 4'b1111;
 
-assign data_sram_wen   = es_mem_we & ~ale_ex ? data_sram_wen_sp : 4'h0;
+assign data_sram_wstrb   = es_mem_we & ~ale_ex ? data_sram_wstrb_sp : 4'h0;
 assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = {32{es_op_st_b}} & {4{es_rkd_value[ 7:0]}} |
                          {32{es_op_st_h}} & {2{es_rkd_value[15:0]}} |
                          {32{es_op_st_w}} & es_rkd_value[31:0];
-
+assign data_sram_wr    = (|data_sram_wstrb);
 
 /* --------------  ALU  -------------- */
 
