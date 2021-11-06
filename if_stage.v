@@ -76,7 +76,7 @@ end
 assign to_fs_valid    = ~reset && ps_ready_go;//lab10
 
 // IF stage
-assign fs_ready_go    = (inst_sram_data_ok || fs_inst_buf_valid) && ~cancle; //lab10
+assign fs_ready_go    = (inst_sram_data_ok || fs_inst_buf_valid) && ~cancel; //lab10
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin || final_ex;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go && ~br_taken;
 
@@ -95,9 +95,10 @@ end
 
 /* -------------------  lab 10 ------------------- */
 assign ps_ready_go = inst_sram_en && inst_sram_addr_ok;//????fs_ex
+
 reg [31:0] fs_inst_buf;
 reg        fs_inst_buf_valid;
-reg        cancle;
+reg        cancel;
 reg        br_taken_buf;
 reg [31:0] nextpc_buf;
 reg        ex_buf_valid;
@@ -124,13 +125,13 @@ end
 
 always@(posedge clk) begin
     if(reset) begin
-        cancle <= 1'b0;
+        cancel <= 1'b0;
     end
     else if(inst_sram_data_ok) begin
-        cancle <= 1'b0;
+        cancel <= 1'b0;
     end 
     else if(final_ex && ~fs_ex && ~(inst_sram_en && inst_sram_addr_ok)) begin
-        cancle <= 1'b1;
+        cancel <= 1'b1;
     end
 end
 

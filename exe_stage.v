@@ -246,7 +246,9 @@ assign es_forward      = {es_csr_block,
 
 /* --------------  MEM write interface  -------------- */
 
-assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid && ~back_ertn_flush && ~ms_ertn_flush && ~ale_ex;
+assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid 
+                      && ~back_ertn_flush && ~ms_ertn_flush && ~ale_ex
+                      && ms_allowin;
 
 // Change in Lab 7
 assign es_addr00 = data_sram_addr[1:0] == 2'b00;

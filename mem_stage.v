@@ -159,7 +159,7 @@ assign ms_forward = {ms_csr_block,
                      ms_csr_num, //55:42
                      ms_csr_we, //41
                      ms_ertn_flush, //40
-                     ms_ex&ms_valid, //39
+                     ms_ex&ms_to_ws_valid, //39
                      ms_final_result, //38:7
                      ms_dest , //6:2 
                      ms_gr_we, //1:1
