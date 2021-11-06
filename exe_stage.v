@@ -87,7 +87,7 @@ wire [31:0] es_pc         ;
 alu u_alu(
     .clk        (clk          ),
     .reset      (reset        ),
-    .alu_op     (es_alu_op    ),
+    .alu_op     (es_alu_op & {19{es_valid}}    ),
     .alu_src1   (es_alu_src1  ),
     .alu_src2   (es_alu_src2  ),
     .alu_result (es_alu_result),
