@@ -20,6 +20,7 @@ module mem_stage(
     output [57                 :0] ms_forward,
     input  back_ertn_flush,
     output ms_ertn_flush,
+    output ms_to_es_valid,
     input  back_ex
 
 );
@@ -94,7 +95,7 @@ reg ms_abandon;
 /* --------------  Handshaking signals -------------- */
 assign ms_ready_go    = ms_op_mem ? (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon : 1'b1;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
-assign ms_to_ws_valid = ms_valid && ms_ready_go && ~final_ex;
+assign ms_to_ws_valid = ms_valid && ms_ready_go;
 
 always @(posedge clk) begin
     if (reset | final_ex | back_ertn_flush) begin
@@ -174,9 +175,6 @@ assign ms_forward = {ms_csr_block,
 
 
 
-
-
-
 /* --------------  MEM read interface  -------------- */
 
 assign ms_vaddr = ms_alu_result;
@@ -199,7 +197,7 @@ always @(posedge clk) begin
         data_sram_rdata_buf_valid <= 1'b0;
     else if (data_sram_data_ok && ~ws_allowin)
         data_sram_rdata_buf_valid <= 1'b1;
-    else if (ms_to_ws_valid && ws_allowin)
+    else if (ms_ready_go && ws_allowin)
         data_sram_rdata_buf_valid <= 1'b0;
 end
 
@@ -243,5 +241,7 @@ end
 /* --------------  CSR instructions  -------------- */
 
 assign ms_csr_block = ms_valid & ms_csr_re;
+
+assign ms_to_es_valid = ms_valid;
 
 endmodule

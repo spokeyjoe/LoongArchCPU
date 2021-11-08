@@ -53,6 +53,8 @@ wire                         back_ertn_flush;
 wire                         back_ex;
 wire [63                 :0] counter;
 wire                         ms_ertn_flush;
+wire                         ms_to_es_valid;
+
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -126,6 +128,7 @@ exe_stage exe_stage(
     .data_sram_wdata(data_sram_wdata),
     .es_forward     (es_forward     ),
     .ms_ertn_flush  (ms_ertn_flush  ),
+    .ms_to_es_valid (ms_to_es_valid ),
     // counter from ws
     .es_counter     (counter        ),
     .back_ertn_flush(back_ertn_flush),
@@ -154,6 +157,7 @@ mem_stage mem_stage(
     .ms_forward     (ms_forward     ),
     .back_ertn_flush(back_ertn_flush),
     .ms_ertn_flush  (ms_ertn_flush  ),
+    .ms_to_es_valid (ms_to_es_valid ),
     .back_ex        (back_ex        )
 );
 // WB stage
