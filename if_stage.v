@@ -25,7 +25,8 @@ module if_stage(
     output [                  1:0] inst_sram_size,//0: 1bytes; 1: 2bytes; 2: 4bytes
     input                          inst_sram_addr_ok,
     input                          inst_sram_data_ok,
-    output                         inst_sram_wr
+    output                         inst_sram_wr,
+    input                          es_ex_detected_to_fs
 );
 
 // Handshake signals
@@ -50,6 +51,7 @@ wire ertn_flush;
 
 
 // Branch bus
+wire         fs_ex_detected;
 wire         br_taken;
 wire [ 31:0] br_target;
 wire         br_stall;      
@@ -123,11 +125,11 @@ always @(posedge clk) begin
     if(reset) begin
         fs_inst_buf_valid <= 1'b0;
     end
+    else if(fs_ready_go && ds_allowin || final_ex) begin
+        fs_inst_buf_valid <= 1'b0;
+    end
     else if(inst_sram_data_ok && ~ds_allowin) begin
         fs_inst_buf_valid <= 1'b1;
-    end
-    else if(fs_ready_go && ds_allowin) begin
-        fs_inst_buf_valid <= 1'b0;
     end
 end
 /*
@@ -190,7 +192,7 @@ end
 
 assign inst_sram_size = 2'b10;
 // Sram interface
-assign inst_sram_req    = fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake;  //req
+assign inst_sram_req    = fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake && ~fs_ex_detected && ~es_ex_detected_to_fs;  //req
 assign inst_sram_wstrb  = 4'h0;  //wstrb
 assign inst_sram_addr   = final_nextpc;
 assign inst_sram_wdata  = 32'b0;
@@ -222,7 +224,7 @@ assign  {has_int,   //66
          ertn_flush //0
         } = ws_to_fs_bus;
 
-assign {br_stall,br_taken,br_target} = br_bus;
+assign {fs_ex_detected, br_stall,br_taken,br_target} = br_bus;
 
 assign fs_inst         = adef_ex ? {11'b0, 1'b1, 20'b0} : 
                          fs_inst_buf_valid ? fs_inst_buf : inst_sram_rdata;

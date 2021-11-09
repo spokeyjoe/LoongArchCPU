@@ -27,7 +27,9 @@ module exe_stage(
     input                          ms_ertn_flush  ,
     input                          ms_to_es_valid ,
     input                          back_ertn_flush,
-    input                          back_ex
+    input                          back_ex        ,
+    input                          ms_to_es_ex    ,
+    output                         es_ex_detected_to_fs
 );
 
 /* --------------  Handshaking signals -------------- */
@@ -126,7 +128,7 @@ wire [ 5:0] es_ecode;
 
 wire        ale_ex;
 
-
+reg         es_ex_detected_unsolved;
 
 
 /* ------------------- CSR related ------------------- */
@@ -313,6 +315,18 @@ assign ale_ex = (es_op_ld_h || es_op_ld_hu || es_op_st_h) && data_sram_addr[0]  
                 (es_op_ld_w || es_op_st_w               ) && (data_sram_addr[1:0] != 2'b00);
 
 
+always @(posedge clk) begin
+    if (reset)
+        es_ex_detected_unsolved <= 1'b0;
+    else if (ms_to_es_ex)
+        es_ex_detected_unsolved <= 1'b0;
+    else if (ale_ex && ~final_ex)
+        es_ex_detected_unsolved <= 1'b1;
+    else
+        es_ex_detected_unsolved <= 1'b0;
+end
+
+assign es_ex_detected_to_fs = es_ex_detected_unsolved;
 
 
 endmodule

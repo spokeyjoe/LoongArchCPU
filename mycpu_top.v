@@ -54,6 +54,8 @@ wire                         back_ex;
 wire [63                 :0] counter;
 wire                         ms_ertn_flush;
 wire                         ms_to_es_valid;
+wire                         ms_to_es_ex;
+wire                         es_ex_detected_to_fs;
 
 // IF stage
 if_stage if_stage(
@@ -81,7 +83,8 @@ if_stage if_stage(
     .inst_sram_size (inst_sram_size ),
     .inst_sram_addr_ok(inst_sram_addr_ok),
     .inst_sram_data_ok(inst_sram_data_ok),
-    .inst_sram_wr   (inst_sram_wr)
+    .inst_sram_wr   (inst_sram_wr   ),
+    .es_ex_detected_to_fs(es_ex_detected_to_fs)
 );
 // ID stage
 id_stage id_stage(
@@ -135,7 +138,9 @@ exe_stage exe_stage(
     .back_ex        (back_ex        ),
     .data_sram_size (data_sram_size ),
     .data_sram_addr_ok(data_sram_addr_ok),
-    .data_sram_wr   (data_sram_wr)
+    .data_sram_wr   (data_sram_wr   ),
+    .ms_to_es_ex    (ms_to_es_ex    ),
+    .es_ex_detected_to_fs(es_ex_detected_to_fs)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -158,7 +163,8 @@ mem_stage mem_stage(
     .back_ertn_flush(back_ertn_flush),
     .ms_ertn_flush  (ms_ertn_flush  ),
     .ms_to_es_valid (ms_to_es_valid ),
-    .back_ex        (back_ex        )
+    .back_ex        (back_ex        ),
+    .ms_to_es_ex    (ms_to_es_ex    )
 );
 // WB stage
 wb_stage wb_stage(

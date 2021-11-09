@@ -2,7 +2,7 @@
     `define MYCPU_H
 
     // Bus width
-    `define BR_BUS_WD       34
+    `define BR_BUS_WD       35
     `define FS_TO_DS_BUS_WD 72
     `define DS_TO_ES_BUS_WD 257
     `define ES_TO_MS_BUS_WD 171

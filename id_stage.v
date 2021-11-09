@@ -243,8 +243,8 @@ wire        ds_esubcode;
 // INE exception
 wire        ine_ex;
 
-
-
+reg         ex_detected_unsolved;
+wire        ex_detected_to_fs;
 
 /* ------------------- Regfile Interface ------------------- */
 
@@ -514,7 +514,7 @@ assign {rf_we   ,  //37:37
        } = ws_to_rf_bus;
 
 // BR bus
-assign br_bus       = {br_stall,br_taken,br_target};
+assign br_bus       = {ex_detected_to_fs, br_stall,br_taken,br_target};
 
 // ES forward bus
 assign  {es_csr_block,
@@ -685,6 +685,19 @@ assign ds_ecode = ~ds_valid    ? 6'b0       :
                   inst_break   ? `ECODE_BRK : 6'b0;
 
 assign ds_esubcode = fs_esubcode;
+
+always @(posedge clk) begin
+    if (reset)
+        ex_detected_unsolved <= 1'b0;
+    else if (ms_ex)
+        ex_detected_unsolved <= 1'b0;
+    else if (ds_ex && ~final_ex)
+        ex_detected_unsolved <= 1'b1;
+    else
+        ex_detected_unsolved <= 1'b0;
+end
+
+assign ex_detected_to_fs = ex_detected_unsolved;
 
 // INE exception
 // Add in Lab 9

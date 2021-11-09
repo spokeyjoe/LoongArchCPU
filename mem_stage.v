@@ -21,7 +21,8 @@ module mem_stage(
     input  back_ertn_flush,
     output ms_ertn_flush,
     output ms_to_es_valid,
-    input  back_ex
+    input  back_ex,
+    output ms_to_es_ex
 
 );
 
@@ -247,6 +248,9 @@ assign ms_to_es_valid = ms_valid;
 
 
 assign ms_ale_ex = ms_ecode == `ECODE_ALE;
+
+
+assign ms_to_es_ex = ms_ex;
 
 
 endmodule
