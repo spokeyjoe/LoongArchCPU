@@ -87,13 +87,14 @@ wire        ms_ertn_flush;
 wire        ms_esubcode;
 wire [ 5:0] ms_ecode;
 wire        ms_ex;
+wire        ms_ale_ex;
 
 
 /* --------------  Abandon  -------------- */
 reg ms_abandon;
 
 /* --------------  Handshaking signals -------------- */
-assign ms_ready_go    = ms_op_mem ? (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon : 1'b1;
+assign ms_ready_go    = ms_op_mem ? (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon || ms_ale_ex : 1'b1;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 
@@ -243,5 +244,9 @@ end
 assign ms_csr_block = ms_valid & ms_csr_re;
 
 assign ms_to_es_valid = ms_valid;
+
+
+assign ms_ale_ex = ms_ecode == `ECODE_ALE;
+
 
 endmodule

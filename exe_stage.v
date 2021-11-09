@@ -147,7 +147,7 @@ assign es_csr_block = es_valid & es_csr_re;
 
 /* --------------  Handshaking signals -------------- */
 
-assign es_ready_go    = ~es_op_mem ? alu_ready_go : alu_ready_go && (data_sram_req && data_sram_addr_ok) ; 
+assign es_ready_go    = ~es_op_mem ? alu_ready_go : alu_ready_go && (data_sram_req && data_sram_addr_ok) || ale_ex; 
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go;//!!!
 

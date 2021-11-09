@@ -67,9 +67,6 @@ always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;
     end
-    else if (final_ex) begin //代替cancel?
-        fs_valid <= 1'b0;
-    end
     else if (fs_allowin) begin
         fs_valid <= to_fs_valid;
     end
@@ -77,18 +74,21 @@ end
 
 // pre-IF stage
 // assign ps_ready_go    = final_ex || ertn_flush || ~adef_ex;
-assign to_fs_valid    = ~reset && ps_ready_go;//lab10
+assign to_fs_valid    = ~reset && ps_ready_go || adef_ex;//lab10
 
 // IF stage
 
-assign fs_ready_go    = (inst_sram_data_ok || fs_inst_buf_valid) && ~final_ex && ~fs_abandon;//~cancel; //lab10
+assign fs_ready_go    = (inst_sram_data_ok || fs_inst_buf_valid) && ~final_ex && ~fs_abandon || adef_ex;//~cancel; //lab10
 assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin || final_ex;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go && ~br_taken;
 
 // PC
 assign seq_pc       = fs_pc + 32'h4;
 assign nextpc       = final_ex ? (~ertn_flush ? ex_entry : ex_era):(br_taken ? br_target : seq_pc);
-assign final_nextpc = (br_taken_buf | ex_buf_valid) ? nextpc_buf : nextpc;
+assign final_nextpc = final_ex ?                          nextpc :
+                      (br_taken_buf | ex_buf_valid) ? nextpc_buf : 
+                                                          nextpc;
+
 always @(posedge clk) begin
     if (reset) begin
         fs_pc <= 32'h1bfffffc;  //trick: to make nextpc be 0x1c000000 during reset 
@@ -147,10 +147,10 @@ always @(posedge clk)begin
     if(reset) begin
         br_taken_buf <= 1'b0;
     end
-    else if(inst_sram_req && inst_sram_addr_ok && fs_allowin) begin
+    else if(br_taken_buf && inst_sram_req && inst_sram_addr_ok && fs_allowin) begin
         br_taken_buf <= 1'b0;
     end 
-    else if(br_taken && ~br_stall) begin
+    else if(br_taken && ~br_stall && ~(inst_sram_req && inst_sram_addr_ok)) begin
         br_taken_buf <= br_taken;
     end
 end
@@ -159,10 +159,10 @@ always @(posedge clk) begin
     if(reset) begin
         ex_buf_valid <= 1'b0;
     end
-    else if(inst_sram_req && inst_sram_addr_ok && fs_allowin) begin
+    else if(ex_buf_valid && inst_sram_req && inst_sram_addr_ok && fs_allowin) begin
         ex_buf_valid <= 1'b0;
     end
-    else if(final_ex) begin
+    else if(final_ex && ~(inst_sram_req && inst_sram_addr_ok)) begin
         ex_buf_valid <= 1'b1;
     end
 end
@@ -183,7 +183,7 @@ always @(posedge clk) begin
     else if(inst_sram_data_ok) begin
         fs_abandon <= 1'b0;
     end
-    else if(final_ex && (to_fs_valid || ~fs_allowin && ~fs_ready_go)) begin
+    else if(final_ex && (~fs_allowin && ~fs_ready_go)) begin
         fs_abandon <= 1'b1;
     end
 end
