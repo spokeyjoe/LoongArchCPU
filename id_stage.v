@@ -675,7 +675,7 @@ assign rkd_value = raw4 ? es_alu_result   :
 
 /* ------------------- Exceptions ------------------- */
 
-assign ds_ex = ds_ready_go & (inst_syscall | inst_break | fs_ex | ine_ex | has_int);
+assign ds_ex = ds_ready_go & (inst_syscall | inst_break | fs_ex | ine_ex | has_int) && ds_valid;
 assign ds_ecode = ~ds_valid    ? 6'b0       :
                   fs_ex        ? fs_ecode   :
                   ine_ex       ? `ECODE_INE :
