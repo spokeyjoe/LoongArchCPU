@@ -80,6 +80,19 @@ assign axi_sram_wdata_unmatch = wdata  != data_sram_wdata;
 // When wdata unmatch occurs, a reg rises for one clock
 reg wdata_unmatch_r;
 
+// When READ FSM enters RDATA (because of unmatch) again,
+// We should overlook the first rdata/rready
+reg read_rdata_overlook;
+
+always @(posedge aclk) begin
+    if (~aresetn)
+        read_rdata_overlook <= 1'b0;
+    else if (read_rdata && rready)
+        read_rdata_overlook <= 1'b0;
+    else if (arvalid && arready && axi_sram_raddr_unmatch)
+        read_rdata_overlook <= 1'b1;
+end
+
 always @(posedge aclk) begin
     if (~aresetn)
         wdata_unmatch_r <= 1'b0;
@@ -138,7 +151,7 @@ always @ (*) begin
         end
     end
     READ_RDATA:begin
-        if (rready && rvalid) begin
+        if (rready && rvalid && ~read_rdata_overlook) begin
             read_next_state = READ_IDLE;
         end 
         else begin
@@ -153,18 +166,18 @@ end
 always @(posedge aclk) begin
     if (~aresetn)
         reading_inst_ram <= 1'b0;
-    else if (~data_sram_req && read_idle && inst_sram_req && ~inst_sram_wr && write_idle)
+    else if (read_idle && ~(data_sram_req && ~data_sram_wr) && (inst_sram_req && ~inst_sram_wr) && write_idle)
         reading_inst_ram <= 1'b1;
-    else if (read_rdata && rready && rvalid)
+    else if (read_rdata && rready && rvalid && ~read_rdata_overlook)
         reading_inst_ram <= 1'b0;
 end
 
 always @(posedge aclk) begin
     if (~aresetn)
         reading_data_ram <= 1'b0;
-    else if (read_idle && data_sram_req && ~data_sram_wr && write_idle)
+    else if (read_idle && (data_sram_req && ~data_sram_wr) && write_idle)
         reading_data_ram <= 1'b1;
-    else if (read_rdata && rready && rvalid)
+    else if (read_rdata && rready && rvalid && ~read_rdata_overlook)
         reading_data_ram <= 1'b0;
 end
 
@@ -200,11 +213,11 @@ always @(posedge aclk) begin
         araddr <= 32'b0;
         arsize <= 3'b0;
     end
-    else if (~data_sram_req && read_idle && inst_sram_req && ~inst_sram_wr && write_idle) begin
+    else if (read_idle && ~(data_sram_req && ~data_sram_wr) && (inst_sram_req && ~inst_sram_wr) && write_idle) begin
         araddr <= inst_sram_addr;
         arsize <= inst_sram_size;
     end
-    else if (read_idle && data_sram_req && ~data_sram_wr && write_idle) begin
+    else if (read_idle && (data_sram_req && ~data_sram_wr) && write_idle) begin
         araddr <= data_sram_addr;
         arsize <= data_sram_size;
     end
