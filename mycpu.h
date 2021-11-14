@@ -9,7 +9,7 @@
     `define MS_TO_WS_BUS_WD 192
     `define WS_TO_RF_BUS_WD 38
     `define ES_FORWARD_WD   59
-    `define MS_FORWARD_WD   58
+    `define MS_FORWARD_WD   60
     `define WS_FORWARD_WD   123
 
     // CSR

@@ -196,9 +196,10 @@ wire        es_valid;
 wire        es_csr_block;
 
 // MS forward bus
+wire        ms_data_sram_data_ok;
 wire        ms_ertn_flush;
 wire        ms_ex;
-//wire        ms_res_from_mem;
+wire        ms_res_from_mem;
 wire [31:0] ms_final_result;
 wire [13:0] ms_csr_num;
 wire        ms_csr_re;
@@ -474,7 +475,8 @@ always @(posedge clk) begin
     end
 end
 
-assign  load_block = es_valid && es_res_from_mem && (raw1 || raw4);
+assign  load_block = es_valid && es_res_from_mem && (raw1 || raw4) ||
+                     ms_valid && ms_res_from_mem && (raw2 || raw5) && ~ms_data_sram_data_ok;
 assign  csr_block =  es_csr_block & (raw1 | raw4)
                    | ms_csr_block & (raw2 | raw5) 
                    | ws_valid & ws_csr_re & (raw3 | raw6) ;
@@ -531,7 +533,9 @@ assign  {es_csr_block,
         } = es_forward;
 
 // MS forward bus
-assign  {ms_csr_block,
+assign  {ms_res_from_mem,  //59
+         ms_data_sram_data_ok,//58
+         ms_csr_block,//57
          ms_csr_re, //56
          ms_csr_num, //55:42
          ms_csr_we, //41

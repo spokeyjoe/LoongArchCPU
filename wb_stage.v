@@ -16,7 +16,7 @@ module wb_stage(
     output [ 3                 :0]  debug_wb_rf_wen ,
     output [ 4                 :0]  debug_wb_rf_wnum,
     output [31                 :0]  debug_wb_rf_wdata,
-    output [122                :0]  ws_forward,
+    output [`WS_FORWARD_WD   -1:0]  ws_forward,
     output [66                 :0]  ws_to_fs_bus,
 
     // counter to es

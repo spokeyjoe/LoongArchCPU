@@ -21,7 +21,7 @@ module exe_stage(
     output [                 31:0] data_sram_wdata,
     output [                  1:0] data_sram_size ,
     input                          data_sram_addr_ok,
-    output [                 58:0] es_forward     ,
+    output [`ES_FORWARD_WD   -1:0] es_forward     ,
     // counter
     input  [                 63:0] es_counter     ,
     input                          ms_ertn_flush  ,
@@ -65,7 +65,6 @@ wire        es_addr10;
 wire        es_addr11;
 
 wire [3:0] data_sram_wstrb_sp;
-
 
 
 

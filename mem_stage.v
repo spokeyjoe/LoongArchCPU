@@ -17,7 +17,7 @@ module mem_stage(
     input  [31                 :0] data_sram_rdata,
     input                          data_sram_data_ok,
 
-    output [57                 :0] ms_forward,
+    output [`MS_FORWARD_WD   -1:0] ms_forward,
     input  back_ertn_flush,
     output ms_ertn_flush,
     output ms_to_es_valid,
@@ -100,7 +100,7 @@ assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 
 always @(posedge clk) begin
-    if (reset | final_ex | back_ertn_flush) begin
+    if (reset | final_ex | back_ertn_flush ) begin
         ms_valid <= 1'b0;
     end
     else if (ms_allowin) begin
@@ -163,7 +163,9 @@ assign ms_to_ws_bus = {ms_inst_rdcntid,  //191
                       };
 
 // MS forward bus
-assign ms_forward = {ms_csr_block,
+assign ms_forward = {ms_res_from_mem,  //59
+                     data_sram_data_ok,//58
+                     ms_csr_block,//57
                      ms_csr_re, //56
                      ms_csr_num, //55:42
                      ms_csr_we, //41
