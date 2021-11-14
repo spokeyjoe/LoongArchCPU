@@ -3,9 +3,9 @@ module axi_bridge(
     input             aresetn,
     // read request channel
     output     [ 3:0] arid,//inst: 0,data: 1
-    output     [31:0] araddr,
+    output reg [31:0] araddr,
     output     [ 7:0] arlen,//0
-    output     [ 2:0] arsize,
+    output reg [ 2:0] arsize,
     output     [ 1:0] arburst,//0b01
     output     [ 1:0] arlock,//0
     output     [ 3:0] arcache,//0
@@ -21,9 +21,9 @@ module axi_bridge(
     output            rready,//read ready
     // write request channel
     output     [ 3:0] awid,//1
-    output     [31:0] awaddr,
+    output reg [31:0] awaddr,
     output     [ 7:0] awlen,//0
-    output     [ 2:0] awsize,
+    output reg [ 2:0] awsize,
     output     [ 1:0] awburst,//0b01
     output     [ 1:0] awlock,//0
     output     [ 3:0] awcache,//0
@@ -32,8 +32,8 @@ module axi_bridge(
     input             awready,//write address valid
     // write data channel
     output     [ 3:0] wid,//1
-    output     [31:0] wdata,
-    output     [ 3:0] wstrb,//WSTRB[n] corresponds to WDATA[(8n) + 7: (8n)].
+    output reg [31:0] wdata,
+    output reg [ 3:0] wstrb,//WSTRB[n] corresponds to WDATA[(8n) + 7: (8n)].
     output            wlast,//1
     output            wvalid,
     input             wready,
@@ -66,6 +66,28 @@ module axi_bridge(
 
 
 /* ------------------- READ FSM ------------------- */
+
+// This signal indicates that the arready doesn't match with the current addr request of SRAM
+// That is to say: araddr != sram_addr
+wire axi_sram_raddr_unmatch;
+wire axi_sram_waddr_unmatch;
+wire axi_sram_wdata_unmatch;
+
+assign axi_sram_raddr_unmatch = araddr != (reading_data_ram ? data_sram_addr : inst_sram_addr);
+assign axi_sram_waddr_unmatch = awaddr != data_sram_addr;
+assign axi_sram_wdata_unmatch = wdata  != data_sram_wdata;
+
+// When wdata unmatch occurs, a reg rises for one clock
+reg wdata_unmatch_r;
+
+always @(posedge aclk) begin
+    if (~aresetn)
+        wdata_unmatch_r <= 1'b0;
+    else if (wdata_unmatch_r)
+        wdata_unmatch_r <= 1'b0;
+    else if (wvalid && wready && axi_sram_wdata_unmatch)
+        wdata_unmatch_r <= 1'b1;
+end
 
 localparam READ_IDLE    = 3'b001; 
 localparam READ_RADDR   = 3'b010;      
@@ -104,9 +126,13 @@ always @ (*) begin
         end
     end
     READ_RADDR:begin
-        if (arvalid && arready) begin         
+        if (arvalid && arready && axi_sram_raddr_unmatch) begin
+            read_next_state = READ_IDLE;
+        end
+        else if (arvalid && arready) begin         
             read_next_state = READ_RDATA;
         end 
+        
         else begin
             read_next_state = READ_RADDR;
         end
@@ -143,7 +169,7 @@ always @(posedge aclk) begin
 end
 
 /* -------------------  read request ------------------- */
-assign inst_sram_addr_ok = arready && reading_inst_ram;
+assign inst_sram_addr_ok = arready && ~axi_sram_raddr_unmatch && reading_inst_ram;
 assign inst_sram_data_ok = rvalid && reading_inst_ram;
 assign inst_sram_rdata   = rdata;
 
@@ -163,15 +189,33 @@ assign finish_two_handshake = two_handshake == 2'b10;
 
 // addr_ok: write transactions -> awready and wready (2 handshakes finished)
 //          read transactions -> arready
-assign data_sram_addr_ok = finish_two_handshake || arready && reading_data_ram;
+assign data_sram_addr_ok = finish_two_handshake || arready && ~axi_sram_raddr_unmatch && reading_data_ram;
+// data_ok: write transactions -> bvalid
+//          read transactions -> rvalid
 assign data_sram_data_ok = rvalid && reading_data_ram || bvalid;
 assign data_sram_rdata   = rdata;
 
+always @(posedge aclk) begin
+    if (~aresetn) begin
+        araddr <= 32'b0;
+        arsize <= 3'b0;
+    end
+    else if (~data_sram_req && read_idle && inst_sram_req && ~inst_sram_wr && write_idle) begin
+        araddr <= inst_sram_addr;
+        arsize <= inst_sram_size;
+    end
+    else if (read_idle && data_sram_req && ~data_sram_wr && write_idle) begin
+        araddr <= data_sram_addr;
+        arsize <= data_sram_size;
+    end
+    
+end
+
 assign arid    = read_raddr && reading_data_ram;
-assign araddr  = {32{read_raddr && reading_inst_ram}} & inst_sram_addr |
-                 {32{read_raddr && reading_data_ram}} & data_sram_addr;
-assign arsize  = {3{read_raddr && reading_inst_ram}} & {1'b0, inst_sram_size} |
-                 {3{read_raddr && reading_data_ram}} & {1'b0, data_sram_size};
+// assign araddr  = {32{read_raddr && reading_inst_ram}} & inst_sram_addr |
+//                  {32{read_raddr && reading_data_ram}} & data_sram_addr;
+// assign arsize  = {3{read_raddr && reading_inst_ram}} & {1'b0, inst_sram_size} |
+//                  {3{read_raddr && reading_data_ram}} & {1'b0, data_sram_size};
 assign arvalid = read_raddr;
 assign arlen   = 8'b0;
 assign arburst = 2'b1;
@@ -216,7 +260,10 @@ always @ (*) begin
         end
     end
     WRITE_WADDR:begin
-        if (awvalid && awready) begin        
+        if (awvalid && awready && axi_sram_waddr_unmatch) begin
+            write_next_state = WRITE_IDLE;
+        end
+        else if (awvalid && awready) begin        
             write_next_state = WRITE_WDATA;
         end 
         else begin
@@ -246,8 +293,28 @@ end
 
 /* -------------------  write request ------------------- */
 
-assign awaddr  = {32{write_waddr}} & data_sram_addr;
-assign awsize  = {3{write_waddr}}  & {1'b0, data_sram_size};
+always @(posedge aclk) begin
+    if (~aresetn) begin
+        awaddr <= 32'b0;
+        awsize <= 3'b0;
+        wdata <= 32'b0;
+        wstrb <= 4'b0;
+    end
+    else if (wvalid && wready && axi_sram_wdata_unmatch) begin
+        awaddr <= data_sram_addr;
+        awsize <= data_sram_size;
+        wdata <= data_sram_wdata;
+        wstrb <= data_sram_wstrb;
+    end
+    else if (write_idle && data_sram_req && data_sram_wr) begin
+        awaddr <= data_sram_addr;
+        awsize <= data_sram_size;
+        wdata <= data_sram_wdata;
+        wstrb <= data_sram_wstrb;
+    end
+end
+// assign awaddr  = {32{write_waddr}} & data_sram_addr;
+// assign awsize  = {3{write_waddr}}  & {1'b0, data_sram_size};
 assign awvalid = write_waddr;
 assign awid    = 4'b1;
 assign awlen   = 8'b0;
@@ -257,9 +324,9 @@ assign awcache = 4'b0;
 assign awprot  = 3'b0;
 
 /* -------------------  write data ------------------- */
-assign wdata   = {32{write_wdata}} & data_sram_wdata;
-assign wstrb   = {4{write_wdata}}  & data_sram_wstrb;
-assign wvalid  = write_wdata;
+// assign wdata   = {32{write_wdata}} & data_sram_wdata;
+// assign wstrb   = {4{write_wdata}}  & data_sram_wstrb;
+assign wvalid  = write_wdata && ~wdata_unmatch_r;
 assign wid     = 4'b1;
 assign wlast   = 1'b1;
 

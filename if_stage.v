@@ -192,7 +192,7 @@ end
 
 assign inst_sram_size = 2'b10;
 // Sram interface
-assign inst_sram_req    = fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake && ~fs_ex_detected && ~es_ex_detected_to_fs;  //req
+assign inst_sram_req    = ~reset && fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake && ~fs_ex_detected && ~es_ex_detected_to_fs;  //req
 assign inst_sram_wstrb  = 4'h0;  //wstrb
 assign inst_sram_addr   = final_nextpc;
 assign inst_sram_wdata  = 32'b0;
