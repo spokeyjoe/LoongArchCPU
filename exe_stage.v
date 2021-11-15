@@ -255,8 +255,7 @@ assign es_forward      = {es_csr_block,
 
 assign data_sram_req    = (es_res_from_mem || es_mem_we) && es_valid 
                       && ~back_ertn_flush && ~(ms_ertn_flush && ms_to_es_valid) && ~ale_ex
-                      && ms_allowin
-                      && ~reset;
+                      && ms_allowin;
 
 assign data_sram_size  = {2{es_op_st_b || es_op_ld_b || es_op_ld_bu}} & 2'b00 |
                          {2{es_op_st_h || es_op_ld_h || es_op_ld_hu}} & 2'b01 |

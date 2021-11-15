@@ -17,13 +17,13 @@ module mem_stage(
     input  [31                 :0] data_sram_rdata,
     input                          data_sram_data_ok,
 
-    output [`MS_FORWARD_WD   -1:0] ms_forward,
-    input  back_ertn_flush,
-    output ms_ertn_flush,
-    output ms_to_es_valid,
-    input  back_ex,
-    output ms_to_es_ex
-
+    output [`MS_FORWARD_WD   -1:0] ms_forward    ,
+    input                          back_ertn_flush,
+    output                         ms_ertn_flush ,
+    output                         ms_to_es_valid,
+    input                          back_ex       ,
+    output                         ms_to_es_ex   ,
+    output                         ms_ex_detected
 );
 
 /* --------------  Handshaking signals -------------- */
@@ -253,6 +253,6 @@ assign ms_ale_ex = ms_ecode == `ECODE_ALE;
 
 
 assign ms_to_es_ex = ms_ex;
-
+assign ms_ex_detected = ms_ex && ms_valid;
 
 endmodule
