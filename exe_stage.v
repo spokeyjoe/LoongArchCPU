@@ -1,6 +1,9 @@
 `include "mycpu.h"
 
-module exe_stage(
+module exe_stage#(
+    parameter TLBNUM = 16
+)
+(
     input                          clk           ,
     input                          reset         ,
     input                          final_ex      ,
@@ -29,7 +32,34 @@ module exe_stage(
     input                          back_ertn_flush,
     input                          back_ex        ,
     input                          ms_to_es_ex    ,
-    output                         es_ex_detected_to_fs
+    output                         es_ex_detected_to_fs,
+    // search port 0 (for fetch)
+    output [              18:0] s0_vppn,
+    output                      s0_va_bit12,
+    output [               9:0] s0_asid,
+    input                       s0_found,
+    input  [$clog2(TLBNUM)-1:0] s0_index,
+    input  [              19:0] s0_ppn,
+    input  [               5:0] s0_ps,
+    input  [               1:0] s0_plv,
+    input  [               1:0] s0_mat,
+    input                       s0_d,
+    input                       s0_v,
+    // search port 1 (for load/store)
+    output [              18:0] s1_vppn,
+    output                      s1_va_bit12,
+    output [               9:0] s1_asid,
+    input                       s1_found,
+    input  [$clog2(TLBNUM)-1:0] s1_index,
+    input  [              19:0] s1_ppn,
+    input  [               5:0] s1_ps,
+    input  [               1:0] s1_plv,
+    input  [               1:0] s1_mat,
+    input                       s1_d,
+    input                       s1_v,
+    // invtlb opcode
+    output [               4:0] invtlb_op,
+    output                      inst_invtlb
 );
 
 /* --------------  Handshaking signals -------------- */
@@ -128,7 +158,7 @@ wire [ 5:0] es_ecode;
 wire        ale_ex;
 
 reg         es_ex_detected_unsolved;
-
+wire        es_tlb_refetch;
 
 /* ------------------- CSR related ------------------- */
 
@@ -140,6 +170,11 @@ wire [31:0] es_csr_wmask;
 wire [31:0] es_csr_wvalue;
 wire        es_csr_we;
 
+wire        inst_tlbsrch;
+wire        inst_tlbrd;
+wire        inst_tlbwr;
+wire        inst_tlbfill;
+wire        inst_invtlb;
 
 
 assign es_csr_block = es_valid & es_csr_re;
@@ -170,12 +205,18 @@ always @(posedge clk) begin
 end
 
 
-assign {es_rdcnt       ,  //256:254
+assign {es_tlb_refetch ,  //262
+        inst_tlbsrch   ,  //261
+        inst_tlbrd     ,  //260
+        inst_tlbwr     ,  //259
+        inst_tlbfill   ,  //258
+        inst_invtlb    ,  //257
+        es_rdcnt       ,  //256:254
         es_ertn_flush  ,  //253
         ds_esubcode    ,  //252
         ds_ecode       ,  //251:246
         ds_ex          }  //245
-        = ds_to_es_bus_r[256:245];
+        = ds_to_es_bus_r[261:245];
         
 // When INE happens at ID stage, these signals are invalid
 assign {es_csr_re      ,  //244
@@ -207,7 +248,13 @@ assign  es_pc             //31 :0
         = ds_to_es_bus_r[31:0];
 
 // ES to MS bus
-assign es_to_ms_bus = {es_op_st_w     ,  //170
+assign es_to_ms_bus = {es_tlb_refetch ,  //176
+                       inst_tlbsrch   ,  //175
+                       inst_tlbrd     ,  //174
+                       inst_tlbwr     ,  //173
+                       inst_tlbfill   ,  //172
+                       inst_invtlb    ,  //171
+                       es_op_st_w     ,  //170
                        es_inst_rdcntid,  //169
                        es_ertn_flush  ,  //168
                        es_esubcode    ,  //167
@@ -280,7 +327,7 @@ assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = {32{es_op_st_b}} & {4{es_rkd_value[ 7:0]}} |
                          {32{es_op_st_h}} & {2{es_rkd_value[15:0]}} |
                          {32{es_op_st_w}} & es_rkd_value[31:0];
-assign data_sram_wr    = (|data_sram_wstrb);
+assign data_sram_wr    = (|data_sram_wstrb) & ~es_tlb_refetch;
 
 /* --------------  ALU  -------------- */
 
@@ -327,5 +374,9 @@ end
 
 assign es_ex_detected_to_fs = es_ex_detected_unsolved;
 
+/* ------------------- Exceptions ------------------- */
+wire   tlbsrch_hit;
+assign tlbsrch_hit = inst_tlbsrch && s1_found;
+assign s1_vppn = inst_invtlb ? es_rkd_value[31:13] : csr_tlbehi_rvalue[31:13];
 
 endmodule

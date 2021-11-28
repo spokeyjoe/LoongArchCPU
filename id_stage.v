@@ -39,6 +39,7 @@ wire [ 5:0] op_31_26;
 wire [ 3:0] op_25_22;
 wire [ 1:0] op_21_20;
 wire [ 4:0] op_19_15;
+wire [ 4:0] op_14_10;
 
 wire [ 4:0] rd;
 wire [ 4:0] rj;
@@ -52,7 +53,8 @@ wire [63:0] op_31_26_d;
 wire [15:0] op_25_22_d;
 wire [ 3:0] op_21_20_d;
 wire [31:0] op_19_15_d;
-  
+wire [31:0] op_14_10_d;
+
 // Instructions
 wire        inst_add_w; 
 wire        inst_sub_w;  
@@ -119,6 +121,17 @@ wire        inst_rdcntid;
 wire        inst_rdcntvh_w;
 wire        inst_rdcntvl_w;
 
+// Add in Lab 14
+wire        inst_tlbsrch;
+wire        inst_tlbrd;
+wire        inst_tlbwr;
+wire        inst_tlbfill;
+wire        inst_invtlb;
+
+// tlb_refetch: 1 -> when tlb instruction comes
+//              0 -> when tlb_reflush comes
+reg         tlb_refetch;
+
 // Load/Store signals
 // Add in Lab 7
 wire        op_ld_w;
@@ -164,8 +177,8 @@ reg         ds_valid   ;
 wire        ds_ready_go;
 wire        csr_block;
 
-
-
+wire        ds_tlb_refetch;
+wire        tlb_reflush;
 /* ------------------- BUS ------------------- */
 
 // FS to DS bus
@@ -289,6 +302,7 @@ assign op_31_26  = ds_inst[31:26];
 assign op_25_22  = ds_inst[25:22];
 assign op_21_20  = ds_inst[21:20];
 assign op_19_15  = ds_inst[19:15];
+assign op_14_10  = ds_inst[14:10];
 
 assign rd   = ds_inst[ 4: 0];
 assign rj   = ds_inst[ 9: 5];
@@ -303,6 +317,7 @@ decoder_6_64 u_dec0(.in(op_31_26 ), .out(op_31_26_d ));
 decoder_4_16 u_dec1(.in(op_25_22 ), .out(op_25_22_d ));
 decoder_2_4  u_dec2(.in(op_21_20 ), .out(op_21_20_d ));
 decoder_5_32 u_dec3(.in(op_19_15 ), .out(op_19_15_d ));
+decoder_5_32 u_dec4(.in(op_14_10 ), .out(op_14_10_d ));
 
 assign inst_add_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h00];
 assign inst_sub_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h02];
@@ -357,10 +372,10 @@ assign inst_st_b   = op_31_26_d[6'h0a] & op_25_22_d[4'h4];
 assign inst_st_h   = op_31_26_d[6'h0a] & op_25_22_d[4'h5];
 
 // Add in lab8
-assign inst_csrrd  = op_31_26_d[6'h01] && ~ds_inst[25] && ~ds_inst[24] && (rj==6'b00); //00000100
-assign inst_csrwr  = op_31_26_d[6'h01] && ~ds_inst[25] && ~ds_inst[24] && (rj==6'b01); //00000100
+assign inst_csrrd  = op_31_26_d[6'h01] && ~ds_inst[25] && ~ds_inst[24] && (rj==5'b00); //00000100
+assign inst_csrwr  = op_31_26_d[6'h01] && ~ds_inst[25] && ~ds_inst[24] && (rj==5'b01); //00000100
 assign inst_csrxchg= op_31_26_d[6'h01] & ~ds_inst[25] & ~ds_inst[24] & ~inst_csrrd & ~inst_csrwr; //00000100
-assign inst_ertn   = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10]; //00000110010010000 01110?
+assign inst_ertn   = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0e] && (rj==5'b00) && (rd==5'b00); //0000011001001000001110
 assign inst_syscall= op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h2] & op_19_15_d[5'h16]; //00000000001010110
 
 // Add in lab9
@@ -376,6 +391,13 @@ assign op_ld_hu    = inst_ld_hu;
 assign op_st_b     = inst_st_b;
 assign op_st_h     = inst_st_h;
 assign op_st_w     = inst_st_w;
+
+// Add in lab14
+assign inst_tlbsrch = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0a] && (rj==5'b00) && (rd==5'b00);
+assign inst_tlbrd   = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0b] && (rj==5'b00) && (rd==5'b00);
+assign inst_tlbwr   = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0c] && (rj==5'b00) && (rd==5'b00);
+assign inst_tlbfill = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0d] && (rj==5'b00) && (rd==5'b00);
+assign inst_invtlb  = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13];
 
 assign alu_op[ 0] = inst_add_w | inst_addi_w | inst_mem | inst_jirl | inst_bl | inst_pcaddu12i;
 assign alu_op[ 1] = inst_sub_w;
@@ -437,8 +459,7 @@ assign src2_is_imm   = inst_slli_w |
                        inst_xori   |
                        inst_pcaddu12i |
                        // add in lab7
-                       inst_mem
-                       ;
+                       inst_mem;
 
 // CSR signals
 // Add in Lab 8
@@ -502,7 +523,8 @@ always @(posedge clk) begin
     end
 end
 
-assign {fs_esubcode ,  //71
+assign {ds_tlb_refetch,
+        fs_esubcode ,  //71
         fs_ecode    ,  //70:65
         fs_ex       ,  //64
         ds_inst,
@@ -516,7 +538,7 @@ assign {rf_we   ,  //37:37
        } = ws_to_rf_bus;
 
 // BR bus
-assign br_bus       = {ex_detected_to_fs, br_stall,br_taken,br_target};
+assign br_bus       = {tlb_refetch, ex_detected_to_fs, br_stall,br_taken,br_target};
 
 // ES forward bus
 assign  {es_csr_block,
@@ -548,7 +570,8 @@ assign  {ms_res_from_mem,  //59
         } = ms_forward;  
 
 // WS forward bus
-assign  {has_int, //122
+assign  {tlb_reflush,//123
+         has_int, //122
          ex_era,    //121:90
          ex_entry,  //89:58
          final_ex, //57
@@ -568,7 +591,13 @@ assign  {has_int, //122
 // ds_rdcnt signal is the combination of three inst signals
 assign ds_rdcnt     = {inst_rdcntid, inst_rdcntvh_w, inst_rdcntvl_w};
 
-assign ds_to_es_bus = {ds_rdcnt    ,  //256:254
+assign ds_to_es_bus = {ds_tlb_refetch,//262
+                       inst_tlbsrch,  //261
+                       inst_tlbrd  ,  //260
+                       inst_tlbwr  ,  //259
+                       inst_tlbfill,  //258
+                       inst_invtlb ,  //257
+                       ds_rdcnt    ,  //256:254
                        inst_ertn   ,  //253
                        ds_esubcode ,  //252
                        ds_ecode    ,  //251:246
@@ -577,7 +606,7 @@ assign ds_to_es_bus = {ds_rdcnt    ,  //256:254
                        csr_num     ,  //243:230
                        csr_wvalue  ,  //229:198
                        csr_wmask   ,  //197:166
-                       csr_we ,  //165
+                       csr_we      ,  //165
                        op_st_w     ,  //164
                        op_ld_w     ,  //163
                        op_ld_b     ,  //162
@@ -598,7 +627,6 @@ assign ds_to_es_bus = {ds_rdcnt    ,  //256:254
                        rkd_value   ,  //63 :32
                        ds_pc          //31 :0
                       };
-
 
 
 /* ------------------- Branch ------------------- */
@@ -623,7 +651,8 @@ assign br_target = inst_jirl ? (rj_value + jirl_offs) : (ds_pc + br_offs);
 assign dst_is_r1     = inst_bl;
 assign dst_is_rj     = inst_rdcntid;
 assign gr_we         = ~inst_st_w & ~inst_st_b & ~inst_st_h & ~inst_beq & ~inst_bne & ~inst_blt & ~inst_bltu 
-                        & ~inst_bge & ~inst_bgeu & ~inst_b & ~inst_ertn;
+                        & ~inst_bge & ~inst_bgeu & ~inst_b & ~inst_ertn 
+                        & ~inst_tlbsrch & ~inst_tlbrd & ~inst_tlbwr & ~inst_tlbfill &~inst_invtlb;
 assign mem_we        = inst_st_w | inst_st_b | inst_st_h;
 assign dest          = dst_is_r1 ? 5'd1 : 
                        dst_is_rj ? rj   : rd;
@@ -703,6 +732,15 @@ end
 
 assign ex_detected_to_fs = ex_detected_unsolved;
 
+always @(posedge clk) begin
+    if (reset)
+        tlb_refetch <= 1'b0;
+    else if (tlb_reflush)
+        tlb_refetch <= 1'b0;
+    else if (inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb)
+        tlb_refetch <= 1'b1;
+end
+
 // INE exception
 // Add in Lab 9
 assign ine_ex = ~(inst_add_w | inst_sub_w | inst_slt | inst_sltu | inst_nor | inst_and | inst_or | inst_xor |
@@ -712,7 +750,7 @@ assign ine_ex = ~(inst_add_w | inst_sub_w | inst_slt | inst_sltu | inst_nor | in
                   inst_div_w | inst_mod_w |inst_div_wu | inst_mod_wu | inst_blt | inst_bge | inst_bltu |
                   inst_bgeu | inst_ld_b | inst_ld_h | inst_ld_bu | inst_ld_hu | inst_pcaddu12i |
                   inst_st_b | inst_st_h | inst_csrrd | inst_csrwr | inst_csrxchg | inst_ertn | inst_syscall |
-                  inst_break | inst_rdcntid | inst_rdcntvh_w | inst_rdcntvl_w);
-
+                  inst_break | inst_rdcntid | inst_rdcntvh_w | inst_rdcntvl_w |
+                  inst_tlbsrch | inst_tlbrd | inst_tlbwr | inst_tlbfill | inst_invtlb);
 
 endmodule

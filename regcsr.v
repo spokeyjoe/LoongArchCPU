@@ -22,7 +22,32 @@ module regcsr(
     output        has_int   , //to id, 中断有效信号
     // counter
     output [63:0] counter   ,
-    output [31:0] counter_id
+    output [31:0] counter_id,
+    // tlb
+    input         inst_tlbsrch,
+    input         inst_tlbrd,
+    input         r_e,
+    input  [18:0] r_vppn,
+    input  [ 5:0] r_ps,
+    input  [ 9:0] r_asid,
+    input         r_g,
+    input  [19:0] r_ppn0,
+    input  [ 1:0] r_plv0,
+    input  [ 1:0] r_mat0,
+    input         r_d0,
+    input         r_v0,
+    input  [19:0] r_ppn1,
+    input  [ 1:0] r_plv1,
+    input  [ 1:0] r_mat1,
+    input         r_d1,
+    input         r_v1,
+    output [31:0] csr_estat_rvalue,
+    output [31:0] csr_tlbidx_rvalue,
+    output [31:0] csr_tlbehi_rvalue,
+    output [31:0] csr_tlbelo0_rvalue,
+    output [31:0] csr_tlbelo1_rvalue,
+    output [31:0] csr_asid_rvalue,
+    output [31:0] csr_tlbrentry_rvalue
 );
 
 reg  [ 1:0] csr_crmd_plv;     //priority level
@@ -55,6 +80,38 @@ wire [31:0] csr_tval;
 reg  [31:0] timer_cnt;
 wire        csr_ticlr_clr;
 wire        wb_ex_addr_err; 
+
+// Add in lab 14
+
+// TLBIDX 
+reg  [ 3:0] csr_tlbidx_index;
+reg  [ 5:0] csr_tlbidx_ps;
+reg         csr_tlbidx_ne;
+
+// TLBEHI
+reg  [18:0] csr_tlbehi_vppn;
+
+// TLBELO
+reg         csr_tlbelo0_v;
+reg         csr_tlbelo0_d;
+reg  [ 1:0] csr_tlbelo0_plv;
+reg  [ 1:0] csr_tlbelo0_mat;
+reg         csr_tlbelo0_g;
+reg  [23:0] csr_tlbelo0_ppn;  
+reg         csr_tlbelo1_v;
+reg         csr_tlbelo1_d;
+reg  [ 1:0] csr_tlbelo1_plv;
+reg  [ 1:0] csr_tlbelo1_mat;
+reg         csr_tlbelo1_g;
+reg  [23:0] csr_tlbelo1_ppn;
+
+// ASID
+reg  [ 9:0] csr_asid_asid;
+wire [ 7:0] csr_asid_asidbits = 8'd10;
+
+// TLBRENTRY
+reg  [25:0] csr_tlbrentry_pa;
+wire [31:0] csr_tlbrentry_rvalue;
 
 always @(posedge clk) begin
     if(reset) begin
@@ -275,28 +332,207 @@ end
 
 assign csr_tval = timer_cnt[31:0];
 
-
 // TICLR
 assign csr_ticlr_clr = 1'b0;
 
 wire [31:0] csr_ticlr = {31'd0, csr_ticlr_clr};
 
+// TLBIDX
+always @(posedge clk) begin
+    if(reset) begin
+        csr_tlbidx_ne    <= 1'b0;
+        csr_tlbidx_ps    <= 6'b0;
+        csr_tlbidx_index <= 4'b0;
+    end
+    else if(tlbsrch_hit) begin
+        csr_tlbidx_ne    <= 1'b0;
+        csr_tlbidx_index <= s1_index;
+    end
+    else if(inst_tlbsrch && ~tlbsrch_hit) begin
+        csr_tlbidx_ne    <= 1'b1;
+    end
+    else if(inst_tlbrd) begin
+        csr_tlbidx_ne    <= ~r_e;
+    end
+    else if(inst_tlbrd && r_e) begin
+        csr_tlbidx_ps    <= r_ps;
+    end
+    else if(csr_we && csr_num==`CSR_TLBIDX)begin
+        csr_tlbidx_ne    <= csr_wmask[`CSR_TLBIDX_NE] & csr_wvalue[`CSR_TLBIDX_NE]
+                         | ~csr_wmask[`CSR_TLBIDX_NE] & csr_tlbidx_ne; 
+        csr_tlbidx_ps    <= csr_wmask[`CSR_TLBIDX_PS] & csr_wvalue[`CSR_TLBIDX_PS]
+                         | ~csr_wmask[`CSR_TLBIDX_PS] & csr_tlbidx_ps;
+        csr_tlbidx_index <= csr_wmask[`CSR_TLBIDX_INDEX] & csr_wvalue[`CSR_TLBIDX_INDEX]
+                         | ~csr_wmask[`CSR_TLBIDX_INDEX] & csr_tlbidx_index;
+    end
+end
 
-assign csr_rvalue = {32{csr_num==`CSR_CRMD  }} & csr_crmd_rvalue
-                  | {32{csr_num==`CSR_PRMD  }} & csr_prmd_rvalue
-                  | {32{csr_num==`CSR_ESTAT }} & csr_estat_rvalue
-                  | {32{csr_num==`CSR_ERA   }} & csr_era_rvalue
-                  | {32{csr_num==`CSR_EENTRY}} & csr_eentry_rvalue
-                  | {32{csr_num==`CSR_ECFG  }} & csr_ecfg_rvalue
-                  | {32{csr_num==`CSR_SAVE0 }} & csr_save0_rvalue
-                  | {32{csr_num==`CSR_SAVE1 }} & csr_save1_rvalue
-                  | {32{csr_num==`CSR_SAVE2 }} & csr_save2_rvalue
-                  | {32{csr_num==`CSR_SAVE3 }} & csr_save3_rvalue
-                  | {32{csr_num==`CSR_BADV  }} & csr_badv_rvalue
-                  | {32{csr_num==`CSR_TID   }} & csr_tid_rvalue
-                  | {32{csr_num==`CSR_TCFG  }} & csr_tcfg_rvalue
-                  | {32{csr_num==`CSR_TVAL  }} & csr_tval
-                  | {32{csr_num==`CSR_TICLR }} & csr_ticlr;
+wire [31:0] csr_tlbidx_rvalue = {csr_tlbidx_ne   ,//31
+                                 1'b0            ,//30
+                                 csr_tlbidx_ps   ,//29:24
+                                 8'b0            ,//23:16
+                                 12'b0           ,//15:4
+                                 csr_tlbidx_index //3:0
+                                };
+// TLBEHI
+always @(posedge clk) begin
+    if(reset) begin
+        csr_tlbehi_vppn <= 19'b0;
+    end
+    else if(inst_tlbrd && r_e) begin
+        csr_tlbehi_vppn <= r_vppn;
+    end
+    else if(csr_we && csr_num == `CSR_TLBEHI) begin
+        csr_tlbehi_vppn <= csr_wmask[`CSR_TLBEHI_VPPN] & csr_wvalue[`CSR_TLBEHI_VPPN]
+                        | ~csr_wmask[`CSR_TLBEHI_VPPN] & csr_tlbehi_vppn;   
+    end
+end
+
+wire [31:0] csr_tlbehi_rvalue = {csr_tlbehi_vppn,//31:13
+                                 13'b0           //12:0
+                                };
+
+// TLBELO0//even
+always @(posedge clk) begin
+    if(reset) begin
+        csr_tlbelo0_v   <= 1'b0;
+        csr_tlbelo0_d   <= 1'b0;
+        csr_tlbelo0_plv <= 2'b0;
+        csr_tlbelo0_mat <= 2'b0;
+        csr_tlbelo0_g   <= 1'b0;
+        csr_tlbelo0_ppn <= 24'b0;
+    end
+    else if(inst_tlbrd && r_e) begin
+        csr_tlbelo0_v   <= r_v0;
+        csr_tlbelo0_d   <= r_d0;
+        csr_tlbelo0_plv <= r_plv0;
+        csr_tlbelo0_mat <= r_mat0;
+        csr_tlbelo0_g   <= r_g;
+        csr_tlbelo0_ppn <= r_ppn0;
+    end
+    else if(csr_we && csr_num == `CSR_TLBELO0) begin
+        csr_tlbelo0_v   <= csr_wmask[`CSR_TLBELO_V] & csr_wvalue[`CSR_TLBELO_V]
+                        | ~csr_wmask[`CSR_TLBELO_V] & csr_tlbelo0_v; 
+        csr_tlbelo0_d   <= csr_wmask[`CSR_TLBELO_D] & csr_wvalue[`CSR_TLBELO_D]
+                        | ~csr_wmask[`CSR_TLBELO_D] & csr_tlbelo0_d;
+        csr_tlbelo0_plv <= csr_wmask[`CSR_TLBELO_PLV] & csr_wvalue[`CSR_TLBELO_PLV]
+                        | ~csr_wmask[`CSR_TLBELO_PLV] & csr_tlbelo0_plv;
+        csr_tlbelo0_mat <= csr_wmask[`CSR_TLBELO_MAT] & csr_wvalue[`CSR_TLBELO_MAT]
+                        | ~csr_wmask[`CSR_TLBELO_MAT] & csr_tlbelo0_mat;
+        csr_tlbelo0_ppn <= csr_wmask[`CSR_TLBELO_PPN] & csr_wvalue[`CSR_TLBELO_PPN]
+                        | ~csr_wmask[`CSR_TLBELO_PPN] & csr_tlbelo0_ppn;
+        csr_tlbelo0_g   <= csr_wmask[`CSR_TLBELO_G] & csr_wvalue[`CSR_TLBELO_G]
+                        | ~csr_wmask[`CSR_TLBELO_G] & csr_tlbelo0_g;    
+    end
+end
+
+wire [31:0] csr_tlbelo0_rvalue = {csr_tlbelo0_ppn,//31:8
+                                  1'b0           ,//7
+                                  csr_tlbelo0_g  ,//6
+                                  csr_tlbelo0_mat,//5:4
+                                  csr_tlbelo0_plv,//3:2
+                                  csr_tlbelo0_d  ,//1
+                                  csr_tlbelo0_v   //0
+                                 };
+
+// TLBELO1//odd
+always @(posedge clk) begin
+    if(reset) begin
+        csr_tlbelo1_v   <= 1'b0;
+        csr_tlbelo1_d   <= 1'b0;
+        csr_tlbelo1_plv <= 2'b0;
+        csr_tlbelo1_mat <= 2'b0;
+        csr_tlbelo1_g   <= 1'b0;
+        csr_tlbelo1_ppn <= 24'b0;
+    end
+    else if(inst_tlbrd && r_e) begin
+        csr_tlbelo1_v   <= r_v1;
+        csr_tlbelo1_d   <= r_d1;
+        csr_tlbelo1_plv <= r_plv1;
+        csr_tlbelo1_mat <= r_mat1;
+        csr_tlbelo1_g   <= r_g;
+        csr_tlbelo1_ppn <= r_ppn1;
+    end
+    else if(csr_we && csr_num == `CSR_TLBELO0) begin
+        csr_tlbelo1_v   <= csr_wmask[`CSR_TLBELO_V] & csr_wvalue[`CSR_TLBELO_V]
+                        | ~csr_wmask[`CSR_TLBELO_V] & csr_tlbelo1_v; 
+        csr_tlbelo1_d   <= csr_wmask[`CSR_TLBELO_D] & csr_wvalue[`CSR_TLBELO_D]
+                        | ~csr_wmask[`CSR_TLBELO_D] & csr_tlbelo1_d;
+        csr_tlbelo1_plv <= csr_wmask[`CSR_TLBELO_PLV] & csr_wvalue[`CSR_TLBELO_PLV]
+                        | ~csr_wmask[`CSR_TLBELO_PLV] & csr_tlbelo1_plv;
+        csr_tlbelo1_mat <= csr_wmask[`CSR_TLBELO_MAT] & csr_wvalue[`CSR_TLBELO_MAT]
+                        | ~csr_wmask[`CSR_TLBELO_MAT] & csr_tlbelo1_mat;
+        csr_tlbelo1_ppn <= csr_wmask[`CSR_TLBELO_PPN] & csr_wvalue[`CSR_TLBELO_PPN]
+                        | ~csr_wmask[`CSR_TLBELO_PPN] & csr_tlbelo1_ppn;
+        csr_tlbelo1_g   <= csr_wmask[`CSR_TLBELO_G] & csr_wvalue[`CSR_TLBELO_G]
+                        | ~csr_wmask[`CSR_TLBELO_G] & csr_tlbelo1_g;    
+    end
+end
+
+wire [31:0] csr_tlbelo1_rvalue = {csr_tlbelo1_ppn,//31:8
+                                  1'b0           ,//7
+                                  csr_tlbelo1_g  ,//6
+                                  csr_tlbelo1_mat,//5:4
+                                  csr_tlbelo1_plv,//3:2
+                                  csr_tlbelo1_d  ,//1
+                                  csr_tlbelo1_v   //0
+                                 };
+
+// ASID                                 
+always @(posedge clk) begin
+    if(reset) begin
+        csr_asid_asid <= 10'b0;
+    end
+    else if(inst_tlbrd && r_e) begin
+        csr_asid_asid <= r_asid;
+    end
+    else if(csr_we && csr_num == `CSR_ASID)begin
+        csr_asid_asid  <= csr_wmask[`CSR_ASID_ASID] & csr_wvalue[`CSR_ASID_ASID]
+                       | ~csr_wmask[`CSR_ASID_ASID] & csr_asid_asid; 
+    end
+end
+
+wire [31:0] csr_asid_rvalue = {8'b0             ,//31:24
+                               csr_asid_asidbits,//23:16
+                               6'b0             ,//15:10
+                               csr_asid_asid     //9:0
+                              };
+// TLBRENTRY
+always @(posedge clk ) begin
+    if(reset)begin
+        csr_tlbrentry_pa <= 26'b0;
+    end 
+    else if(csr_we && csr_num == `CSR_TLBRENTRY) begin
+        csr_tlbrentry_pa <= csr_wmask[`CSR_TLBRENTRY_PA] & csr_wvalue[`CSR_TLBRENTRY_PA]
+                         | ~csr_wmask[`CSR_TLBRENTRY_PA] & csr_tlbrentry_pa; 
+    end
+end
+
+wire [31:0] csr_tlbrentry_rvalue = {csr_tlbrentry_pa,//31:6
+                                    6'b0             //5:0    
+                                   };
+
+assign csr_rvalue = {32{csr_num==`CSR_CRMD     }} & csr_crmd_rvalue
+                  | {32{csr_num==`CSR_PRMD     }} & csr_prmd_rvalue
+                  | {32{csr_num==`CSR_ESTAT    }} & csr_estat_rvalue
+                  | {32{csr_num==`CSR_ERA      }} & csr_era_rvalue
+                  | {32{csr_num==`CSR_EENTRY   }} & csr_eentry_rvalue
+                  | {32{csr_num==`CSR_ECFG     }} & csr_ecfg_rvalue
+                  | {32{csr_num==`CSR_SAVE0    }} & csr_save0_rvalue
+                  | {32{csr_num==`CSR_SAVE1    }} & csr_save1_rvalue
+                  | {32{csr_num==`CSR_SAVE2    }} & csr_save2_rvalue
+                  | {32{csr_num==`CSR_SAVE3    }} & csr_save3_rvalue
+                  | {32{csr_num==`CSR_BADV     }} & csr_badv_rvalue
+                  | {32{csr_num==`CSR_TID      }} & csr_tid_rvalue
+                  | {32{csr_num==`CSR_TCFG     }} & csr_tcfg_rvalue
+                  | {32{csr_num==`CSR_TVAL     }} & csr_tval
+                  | {32{csr_num==`CSR_TICLR    }} & csr_ticlr
+                  | {32{csr_num==`CSR_TLBIDX   }} & csr_tlbidx_rvalue
+                  | {32{csr_num==`CSR_TLBEHI   }} & csr_tlbehi_rvalue
+                  | {32{csr_num==`CSR_TLBELO0  }} & csr_tlbelo0_rvalue
+                  | {32{csr_num==`CSR_TLBELO1  }} & csr_tlbelo1_rvalue
+                  | {32{csr_num==`CSR_ASID     }} & csr_asid_rvalue
+                  | {32{csr_num==`CSR_TLBRENTRY}} & csr_tlbrentry_rvalue;
 
 assign has_int = ((csr_estat_is[11:0] & csr_ecfg_lie[11:0]) != 12'b0)
                 && (csr_crmd_ie == 1'b1);

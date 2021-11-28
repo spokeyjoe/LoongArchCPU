@@ -38,7 +38,7 @@ wire        ms_ready_go;
 // ES to MS bus
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
 
-
+wire        ms_tlb_refetch;
 
 /* --------------  MEM related  -------------- */
 wire        ms_op_st_w;
@@ -78,8 +78,11 @@ wire        ms_csr_we;
 
 wire        ms_csr_block;
 
-
-
+wire        inst_tlbsrch;
+wire        inst_tlbrd;
+wire        inst_tlbwr;
+wire        inst_tlbfill;
+wire        inst_invtlb;
 /* --------------  Exceptions  -------------- */
 
 wire        ms_inst_rdcntid;
@@ -118,7 +121,13 @@ always @(posedge clk) begin
     end
 end
 
-assign {ms_op_st_w     ,  //170
+assign {ms_tlb_refetch ,  //176
+        inst_tlbsrch   ,  //175
+        inst_tlbrd     ,  //174
+        inst_tlbwr     ,  //173
+        inst_tlbfill   ,  //172
+        inst_invtlb    ,  //171
+        ms_op_st_w     ,  //170
         ms_inst_rdcntid,  //169
         ms_ertn_flush  ,  //168
         ms_esubcode    ,  //167
@@ -145,7 +154,13 @@ assign {ms_op_st_w     ,  //170
        } = es_to_ms_bus_r;
 
 // MS to WS bus
-assign ms_to_ws_bus = {ms_inst_rdcntid,  //191
+assign ms_to_ws_bus = {ms_tlb_refetch ,  //197
+                       inst_tlbsrch   ,  //196
+                       inst_tlbrd     ,  //195
+                       inst_tlbwr     ,  //194
+                       inst_tlbfill   ,  //193
+                       inst_invtlb    ,  //192
+                       ms_inst_rdcntid,  //191
                        ms_vaddr       ,  //190:159
                        ms_ertn_flush  ,  //158
                        ms_esubcode    ,  //157

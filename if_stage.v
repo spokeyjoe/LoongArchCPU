@@ -37,6 +37,8 @@ wire        fs_allowin;
 wire        to_fs_valid;
 wire        ps_ready_go;
 
+wire        tlb_reflsh;
+wire [31:0] refetch_pc;
 // PC 
 wire [31:0] seq_pc;
 wire [31:0] nextpc;
@@ -49,7 +51,7 @@ wire [31:0] ex_era;
 wire has_int;
 wire ertn_flush;
 
-
+wire fs_tlb_refetch;
 
 // Branch bus
 wire         fs_ex_detected;
@@ -88,7 +90,8 @@ assign fs_to_ds_valid =  fs_valid && fs_ready_go && ~br_taken;
 // PC
 assign seq_pc       = fs_pc + 32'h4;
 assign nextpc       = final_ex ? (~ertn_flush ? ex_entry : ex_era):(br_taken ? br_target : seq_pc);
-assign final_nextpc = final_ex ?                          nextpc :
+assign final_nextpc = tlb_reflush ?                   refetch_pc :
+                      final_ex ?                          nextpc :
                       (br_taken_buf | ex_buf_valid) ? nextpc_buf : 
                                                           nextpc;
 
@@ -106,7 +109,6 @@ assign ps_ready_go = inst_sram_req && inst_sram_addr_ok;//????fs_ex
 
 reg [31:0] fs_inst_buf;
 reg        fs_inst_buf_valid;
-//reg        cancel;
 reg        br_taken_buf;
 reg [31:0] nextpc_buf;
 reg        ex_buf_valid;
@@ -133,19 +135,7 @@ always @(posedge clk) begin
         fs_inst_buf_valid <= 1'b1;
     end
 end
-/*
-always@(posedge clk) begin
-    if(reset) begin
-        cancel <= 1'b0;
-    end
-    else if(inst_sram_data_ok) begin
-        cancel <= 1'b0;
-    end 
-    else if(final_ex && ~fs_ex && ~(inst_sram_req && inst_sram_addr_ok)) begin
-        cancel <= 1'b1;
-    end
-end
-*/
+
 always @(posedge clk)begin
     if(reset) begin
         br_taken_buf <= 1'b0;
@@ -191,14 +181,14 @@ always @(posedge clk) begin
     end
 end
 
-assign inst_sram_size = 2'b10;
+assign inst_sram_size  = 2'b10;
 // Sram interface
-assign inst_sram_req    = fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake 
-                      && ~fs_ex_detected && ~es_ex_detected_to_fs && ~ms_ex_detected;  //req
-assign inst_sram_wstrb  = 4'h0;  //wstrb
-assign inst_sram_addr   = final_nextpc;
-assign inst_sram_wdata  = 32'b0;
-assign inst_sram_wr     = 1'b0;
+assign inst_sram_req   = fs_allowin && ~adef_ex && ~br_stall && ~mid_handshake 
+                        && ~fs_ex_detected && ~es_ex_detected_to_fs && ~ms_ex_detected;  //req
+assign inst_sram_wstrb = 4'h0;  //wstrb
+assign inst_sram_addr  = final_nextpc;
+assign inst_sram_wdata = 32'b0;
+assign inst_sram_wr    = 1'b0;
 // Exception
 assign fs_esubcode     = adef_ex ? `ESUBCODE_ADEF : 1'b0;
 assign fs_ecode        = adef_ex ? `ECODE_ADE : 6'b0;
@@ -219,19 +209,22 @@ always @(posedge clk) begin
         mid_handshake <= 1'b1;
 end
 
-assign  {has_int,   //66
+assign  {tlb_reflush,//99
+         refetch_pc,//98:67
+         has_int,   //66
          ex_era,    //65:34
          ex_entry,  //33:2
          final_ex,  //1
          ertn_flush //0
         } = ws_to_fs_bus;
 
-assign {fs_ex_detected, br_stall,br_taken,br_target} = br_bus;
+assign {fs_tlb_refetch, fs_ex_detected, br_stall,br_taken,br_target} = br_bus;
 
 assign fs_inst         = adef_ex ? {11'b0, 1'b1, 20'b0} : 
                          fs_inst_buf_valid ? fs_inst_buf : inst_sram_rdata;
 
-assign fs_to_ds_bus = {fs_esubcode ,  //71
+assign fs_to_ds_bus = {fs_tlb_refetch,//72
+                       fs_esubcode ,  //71
                        fs_ecode    ,  //70:65
                        fs_ex       ,  //64
                        fs_inst     ,  //63:32
