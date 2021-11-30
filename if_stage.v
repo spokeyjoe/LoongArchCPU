@@ -16,7 +16,7 @@ module if_stage(
     output [                 31:0] inst_sram_addr ,
     output [                 31:0] inst_sram_wdata,
     input  [                 31:0] inst_sram_rdata,
-    input  [                 66:0] ws_to_fs_bus,
+    input  [`WS_TO_FS_BUS_WD -1:0] ws_to_fs_bus,
     input  [`ES_FORWARD_WD   -1:0] es_forward,
     input  [`MS_FORWARD_WD   -1:0] ms_forward,
     input  [`WS_FORWARD_WD   -1:0] ws_forward,
@@ -37,7 +37,7 @@ wire        fs_allowin;
 wire        to_fs_valid;
 wire        ps_ready_go;
 
-wire        tlb_reflsh;
+wire        tlb_reflush;
 wire [31:0] refetch_pc;
 // PC 
 wire [31:0] seq_pc;

@@ -128,8 +128,6 @@ wire        inst_tlbwr;
 wire        inst_tlbfill;
 wire        inst_invtlb;
 
-// tlb_refetch: 1 -> when tlb instruction comes
-//              0 -> when tlb_reflush comes
 reg         tlb_refetch;
 
 // Load/Store signals
@@ -293,6 +291,8 @@ wire raw6;
 wire raw;
 
 wire br_stall;
+
+wire [4:0] invop;
 /* ------------------------------------------  ASSIGNMENTS ------------------------------------------ */
 
 
@@ -307,6 +307,8 @@ assign op_14_10  = ds_inst[14:10];
 assign rd   = ds_inst[ 4: 0];
 assign rj   = ds_inst[ 9: 5];
 assign rk   = ds_inst[14:10];
+
+assign invop = ds_inst[ 4:0];
 
 assign i12  = ds_inst[21:10];
 assign i20  = ds_inst[24: 5];
@@ -397,7 +399,7 @@ assign inst_tlbsrch = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & 
 assign inst_tlbrd   = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0b] && (rj==5'b00) && (rd==5'b00);
 assign inst_tlbwr   = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0c] && (rj==5'b00) && (rd==5'b00);
 assign inst_tlbfill = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & op_14_10_d[5'h0d] && (rj==5'b00) && (rd==5'b00);
-assign inst_invtlb  = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13];
+assign inst_invtlb  = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h13] & (invop==5'h00 | invop==5'h01 | invop==5'h02 | invop==5'h03 | invop==5'h04 | invop==5'h05 | invop==5'h06);
 
 assign alu_op[ 0] = inst_add_w | inst_addi_w | inst_mem | inst_jirl | inst_bl | inst_pcaddu12i;
 assign alu_op[ 1] = inst_sub_w;
@@ -464,8 +466,8 @@ assign src2_is_imm   = inst_slli_w |
 // CSR signals
 // Add in Lab 8
 assign csr_num      = inst_rdcntid ? 14'd64 : ds_inst[23:10];
-assign csr_we       = inst_csrwr | inst_csrxchg;
-assign csr_re       = inst_csrrd | inst_csrwr | inst_csrxchg | inst_rdcntid;
+assign csr_we       = inst_csrwr | inst_csrxchg && ~ds_tlb_refetch;
+assign csr_re       = inst_csrrd | inst_csrwr | inst_csrxchg | inst_rdcntid && ~ds_tlb_refetch;
 assign csr_wmask    = {32{inst_csrxchg}} & rj_value | {32{~inst_csrxchg}};
 assign csr_wvalue   = rkd_value;
 
@@ -538,7 +540,8 @@ assign {rf_we   ,  //37:37
        } = ws_to_rf_bus;
 
 // BR bus
-assign br_bus       = {tlb_refetch, ex_detected_to_fs, br_stall,br_taken,br_target};
+assign br_bus       = {tlb_refetch || ((inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb) && ds_valid)
+                    , ex_detected_to_fs, br_stall,br_taken,br_target};
 
 // ES forward bus
 assign  {es_csr_block,
@@ -591,7 +594,8 @@ assign  {tlb_reflush,//123
 // ds_rdcnt signal is the combination of three inst signals
 assign ds_rdcnt     = {inst_rdcntid, inst_rdcntvh_w, inst_rdcntvl_w};
 
-assign ds_to_es_bus = {ds_tlb_refetch,//262
+assign ds_to_es_bus = {invop       ,  //267:263
+                       ds_tlb_refetch,//262
                        inst_tlbsrch,  //261
                        inst_tlbrd  ,  //260
                        inst_tlbwr  ,  //259
@@ -737,9 +741,10 @@ always @(posedge clk) begin
         tlb_refetch <= 1'b0;
     else if (tlb_reflush)
         tlb_refetch <= 1'b0;
-    else if (inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb)
+    else if ((inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb) && ds_valid)
         tlb_refetch <= 1'b1;
 end
+
 
 // INE exception
 // Add in Lab 9

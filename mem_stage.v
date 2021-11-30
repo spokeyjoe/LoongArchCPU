@@ -78,11 +78,13 @@ wire        ms_csr_we;
 
 wire        ms_csr_block;
 
+wire        tlbsrch_hit;
 wire        inst_tlbsrch;
 wire        inst_tlbrd;
 wire        inst_tlbwr;
 wire        inst_tlbfill;
 wire        inst_invtlb;
+wire        s1_index;
 /* --------------  Exceptions  -------------- */
 
 wire        ms_inst_rdcntid;
@@ -121,7 +123,9 @@ always @(posedge clk) begin
     end
 end
 
-assign {ms_tlb_refetch ,  //176
+assign {s1_index       ,  //178
+        tlbsrch_hit    ,  //177
+        ms_tlb_refetch ,  //176
         inst_tlbsrch   ,  //175
         inst_tlbrd     ,  //174
         inst_tlbwr     ,  //173
@@ -154,7 +158,9 @@ assign {ms_tlb_refetch ,  //176
        } = es_to_ms_bus_r;
 
 // MS to WS bus
-assign ms_to_ws_bus = {ms_tlb_refetch ,  //197
+assign ms_to_ws_bus = {s1_index       ,  //199
+                       tlbsrch_hit    ,  //198
+                       ms_tlb_refetch ,  //197
                        inst_tlbsrch   ,  //196
                        inst_tlbrd     ,  //195
                        inst_tlbwr     ,  //194

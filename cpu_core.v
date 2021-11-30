@@ -49,12 +49,14 @@ wire [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus;
 wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus;
 wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus;
 wire [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus;
+wire [`WS_TO_ES_BUS_WD -1:0] ws_to_es_bus;
 wire [`BR_BUS_WD       -1:0] br_bus;
 wire [`ES_FORWARD_WD   -1:0] es_forward;
 wire [`MS_FORWARD_WD   -1:0] ms_forward;
 wire [`WS_FORWARD_WD   -1:0] ws_forward;
+//wire                         es_valid;
 wire                         final_ex;
-wire [66                 :0] ws_to_fs_bus;
+wire [`WS_TO_FS_BUS_WD -1:0] ws_to_fs_bus;
 wire                         back_ertn_flush;
 wire                         back_ex;
 wire [63                 :0] counter;
@@ -121,6 +123,54 @@ wire [               1:0]    r_plv1;
 wire [               1:0]    r_mat1;
 wire                         r_d1;
 wire                         r_v1;
+wire                         inst_tlbsrch;
+wire                         inst_tlbrd;
+wire                         inst_tlbfill;
+wire                         inst_tlbwr;
+wire [              97:0]    csr_tlb_in;
+wire [              97:0]    csr_tlb_out;
+assign csr_tlb_in = {//es_valid,    //96
+                     inst_tlbwr,
+                     inst_tlbfill,
+                     inst_tlbsrch,//95
+                     inst_tlbrd,  //94
+                     s1_found,    //93
+                     s1_index,    //92:89
+                     r_e,         //88
+                     r_vppn,      //87:69
+                     r_ps,        //68:63
+                     r_asid,      //62:53
+                     r_g,         //52
+                     r_ppn0,      //51:32
+                     r_plv0,      //31:30
+                     r_mat0,      //29:28
+                     r_d0,        //27
+                     r_v0,        //26
+                     r_ppn1,      //25:6
+                     r_plv1,      //5:4
+                     r_mat1,      //3:2
+                     r_d1,        //1
+                     r_v1         //0
+                    };
+assign {we,     //97
+        w_index,//96:93
+        w_e,    //92
+        w_vppn, //91:73
+        w_ps,   //72:67
+        w_asid, //66:57
+        w_g,    //56
+        w_ppn0, //55:36
+        w_plv0, //35:34
+        w_mat0, //33:32
+        w_d0,   //31
+        w_v0,   //30
+        w_ppn1, //29:10
+        w_plv1, //9:8
+        w_mat1, //7:6
+        w_d1,   //5
+        w_v1,   //4
+        r_index //3:0
+       } = csr_tlb_out;
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -183,6 +233,7 @@ exe_stage exe_stage(
     //allowin
     .ms_allowin     (ms_allowin     ),
     .es_allowin     (es_allowin     ),
+ //   .es_valid       (es_valid       ),
     //from ds
     .ds_to_es_valid (ds_to_es_valid ),
     .ds_to_es_bus   (ds_to_es_bus   ),
@@ -232,7 +283,12 @@ exe_stage exe_stage(
     .s1_v          (s1_v           ),
     // invtlb opcode
     .invtlb_op     (invtlb_op      ),
-    .inst_invtlb   (inst_invtlb    )
+    .inst_tlbsrch  (inst_tlbsrch   ),
+    .inst_tlbrd    (inst_tlbrd     ),
+    .inst_tlbwr    (inst_tlbwr     ),
+    .inst_tlbfill  (inst_tlbfill   ),
+    .inst_invtlb   (inst_invtlb    ),
+    .ws_to_es_bus  (ws_to_es_bus   )
 );
 // MEM stage
 mem_stage mem_stage(
@@ -281,42 +337,11 @@ wb_stage wb_stage(
     //counter
     .counter          (counter          ),
     .back_ertn_flush  (back_ertn_flush  ),
-    .back_ex          (back_ex          )
-    // write port
-    .we            (we             ),
-    .w_index       (w_index        ),
-    .w_e           (w_e            ),
-    .w_ps          (w_ps           ),
-    .w_vppn        (w_vppn         ),
-    .w_asid        (w_asid         ),
-    .w_g           (w_g            ),
-    .w_ppn0        (w_ppn0         ),
-    .w_plv0        (w_plv0         ),
-    .w_mat0        (w_mat0         ),
-    .w_d0          (w_d0           ),
-    .w_v0          (w_v0           ),
-    .w_ppn1        (w_ppn1         ),
-    .w_plv1        (w_plv1         ),
-    .w_mat1        (w_mat1         ),
-    .w_d1          (w_d1           ),
-    .w_v1          (w_v1           ),
-    // read port
-    .r_index       (r_index        ),
-    .r_e           (r_e            ),
-    .r_vppn        (r_vppn         ),
-    .r_ps          (r_ps           ),
-    .r_asid        (r_asid         ),
-    .r_g           (r_g            ),
-    .r_ppn0        (r_ppn0         ),
-    .r_plv0        (r_plv0         ),
-    .r_mat0        (r_mat0         ),
-    .r_d0          (r_d0           ),
-    .r_v0          (r_v0           ),
-    .r_ppn1        (r_ppn1         ),     
-    .r_plv1        (r_plv1         ),
-    .r_mat1        (r_mat1         ),
-    .r_d1          (r_d1           ),
-    .r_v1          (r_v1           )
+    .back_ex          (back_ex          ),
+    // tlb
+    .csr_tlb_out      (csr_tlb_out      ),
+    .csr_tlb_in       (csr_tlb_in       ),
+    .ws_to_es_bus     (ws_to_es_bus     )
 );
 // tlb
 tlb tlb(

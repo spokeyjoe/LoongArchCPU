@@ -4,9 +4,9 @@
     // Bus width
     `define BR_BUS_WD       36
     `define FS_TO_DS_BUS_WD 73
-    `define DS_TO_ES_BUS_WD 263
-    `define ES_TO_MS_BUS_WD 177
-    `define MS_TO_WS_BUS_WD 198
+    `define DS_TO_ES_BUS_WD 268
+    `define ES_TO_MS_BUS_WD 179
+    `define MS_TO_WS_BUS_WD 200
     `define WS_TO_RF_BUS_WD 38
     `define WS_TO_FS_BUS_WD 100
     `define ES_FORWARD_WD   59
@@ -62,16 +62,16 @@
     `define CSR_TICLR       68
     `define CSR_TICLR_CLR   0
     // TLBIDX
-    `define CSR_TLBIDX       10
+    `define CSR_TLBIDX       16
     `define CSR_TLBIDX_INDEX 4 :0
     `define CSR_TLBIDX_PS    29:24
     `define CSR_TLBIDX_NE    31
     // TLBEHI
-    `define CSR_TLBEHI      11
+    `define CSR_TLBEHI      17
     `define CSR_TLBEHI_VPPN 31:13
     // TLBELO0 // TLBELO1
-    `define CSR_TLBELO0    12
-    `define CSR_TLBELO1    13
+    `define CSR_TLBELO0    18
+    `define CSR_TLBELO1    19
     `define CSR_TLBELO_V   0
     `define CSR_TLBELO_D   1
     `define CSR_TLBELO_PLV 3 :2
@@ -79,11 +79,11 @@
     `define CSR_TLBELO_G   6
     `define CSR_TLBELO_PPN 31:8
     // ASID
-    `define CSR_ASID          18   
+    `define CSR_ASID          24  
     `define CSR_ASID_ASID     9 :0
     `define CSR_ASID_ASIDBITS 23:16
     // TLBRENTRY
-    `define CSR_TLBRENTRY    88
+    `define CSR_TLBRENTRY    136
     `define CSR_TLBRENTRY_PA 31:6
     // ECODE
     `define ECODE_ADE       8 

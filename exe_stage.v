@@ -10,6 +10,7 @@ module exe_stage#(
     //allowin
     input                          ms_allowin    ,
     output                         es_allowin    ,
+  //  output                         es_valid      ,
     //from ds
     input                          ds_to_es_valid,
     input  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus  ,
@@ -59,7 +60,12 @@ module exe_stage#(
     input                       s1_v,
     // invtlb opcode
     output [               4:0] invtlb_op,
-    output                      inst_invtlb
+    output                      inst_tlbsrch,
+    output                      inst_tlbrd,
+    output                      inst_tlbwr,
+    output                      inst_tlbfill,
+    output                      inst_invtlb,
+    input  [`WS_TO_ES_BUS_WD -1:0] ws_to_es_bus
 );
 
 /* --------------  Handshaking signals -------------- */
@@ -67,7 +73,7 @@ module exe_stage#(
 reg         es_valid      ;
 wire        es_ready_go   ;
 
-
+assign      invtlb_op = invop;
 
 /* -------------------  BUS ------------------- */
 reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
@@ -126,10 +132,6 @@ alu u_alu(
     .div_ready_go (alu_ready_go)
     );
 
-
-
-
-
 /* --------------  Counter  -------------- */
 
 wire [ 2:0] es_rdcnt;
@@ -170,16 +172,13 @@ wire [31:0] es_csr_wmask;
 wire [31:0] es_csr_wvalue;
 wire        es_csr_we;
 
-wire        inst_tlbsrch;
-wire        inst_tlbrd;
-wire        inst_tlbwr;
-wire        inst_tlbfill;
-wire        inst_invtlb;
-
+wire [31:0] csr_asid_rvalue;
+wire [31:0] csr_tlbehi_rvalue;
+wire        s1_index;
 
 assign es_csr_block = es_valid & es_csr_re;
 
-
+wire [ 4:0] invop;
 
 /* --------------  Handshaking signals -------------- */
 
@@ -205,7 +204,8 @@ always @(posedge clk) begin
 end
 
 
-assign {es_tlb_refetch ,  //262
+assign {invop          ,  //267:263
+        es_tlb_refetch ,  //262
         inst_tlbsrch   ,  //261
         inst_tlbrd     ,  //260
         inst_tlbwr     ,  //259
@@ -216,7 +216,7 @@ assign {es_tlb_refetch ,  //262
         ds_esubcode    ,  //252
         ds_ecode       ,  //251:246
         ds_ex          }  //245
-        = ds_to_es_bus_r[261:245];
+        = ds_to_es_bus_r[267:245];
         
 // When INE happens at ID stage, these signals are invalid
 assign {es_csr_re      ,  //244
@@ -248,7 +248,9 @@ assign  es_pc             //31 :0
         = ds_to_es_bus_r[31:0];
 
 // ES to MS bus
-assign es_to_ms_bus = {es_tlb_refetch ,  //176
+assign es_to_ms_bus = {s1_index       ,  //178
+                       tlbsrch_hit    ,  //177
+                       es_tlb_refetch ,  //176
                        inst_tlbsrch   ,  //175
                        inst_tlbrd     ,  //174
                        inst_tlbwr     ,  //173
@@ -295,7 +297,9 @@ assign es_forward      = {es_csr_block,
                           es_valid  //0:0
                          };
 
-
+assign {csr_asid_rvalue, //63:32
+        csr_tlbehi_rvalue//31:0
+       } = ws_to_es_bus;
 
 
 /* --------------  MEM write interface  -------------- */
@@ -377,6 +381,8 @@ assign es_ex_detected_to_fs = es_ex_detected_unsolved;
 /* ------------------- Exceptions ------------------- */
 wire   tlbsrch_hit;
 assign tlbsrch_hit = inst_tlbsrch && s1_found;
-assign s1_vppn = inst_invtlb ? es_rkd_value[31:13] : csr_tlbehi_rvalue[31:13];
+assign s1_vppn     = inst_invtlb ? es_rkd_value[31:13] : csr_tlbehi_rvalue[31:13];
+assign s1_asid     = inst_invtlb ? es_rj_value[9:0]    : csr_asid_rvalue[9:0];
+assign s1_va_bit12 = 1'b0;
 
 endmodule

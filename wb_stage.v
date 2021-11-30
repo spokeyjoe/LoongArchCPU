@@ -27,50 +27,15 @@ parameter TLBNUM = 16
     output back_ertn_flush,
     output back_ex,
     // tlb
-    output                      we, 
-    output [$clog2(TLBNUM)-1:0] w_index,
-    output                      w_e,
-    output [              18:0] w_vppn,
-    output [               5:0] w_ps,
-    output [               9:0] w_asid,
-    output                      w_g,
-    output [              19:0] w_ppn0,
-    output [               1:0] w_plv0,
-    output [               1:0] w_mat0,
-    output                      w_d0,
-    output                      w_v0,
-    output [              19:0] w_ppn1,
-    output [               1:0] w_plv1,
-    output [               1:0] w_mat1,
-    output                      w_d1,
-    output                      w_v1,
-    output [$clog2(TLBNUM)-1:0] r_index,
-    input                       r_e,
-    input  [              18:0] r_vppn,
-    input  [               5:0] r_ps,
-    input  [               9:0] r_asid,
-    input                       r_g,
-    input  [              19:0] r_ppn0,
-    input  [               1:0] r_plv0,
-    input  [               1:0] r_mat0,
-    input                       r_d0,
-    input                       r_v0,
-    input  [              19:0] r_ppn1,
-    input  [               1:0] r_plv1,
-    input  [               1:0] r_mat1,
-    input                       r_d1,
-    input                       r_v1,
-    output [`WS_TO_ES_BUS_WD -1:0] ws_to_es_bus
+    output [                 97:0]  csr_tlb_out,
+    input  [                 97:0]  csr_tlb_in,
+    output [`WS_TO_ES_BUS_WD -1:0]  ws_to_es_bus
 );
-
 
 /* --------------  Handshaking signals -------------- */
 
 reg         ws_valid;
 wire        ws_ready_go;
-
-
-
 
 /* -------------------  BUS ------------------- */
 
@@ -94,12 +59,15 @@ wire [31:0] counter_id;
 wire [31:0] ws_vaddr;
 wire [31:0] ws_final_result;
 
+wire        tlbsrch_hit;
 wire        ws_tlb_refetch;
 wire        inst_tlbsrch;
 wire        inst_tlbrd;
 wire        inst_tlbwr;
 wire        inst_tlbfill;
 wire        inst_invtlb;
+wire [31:0] csr_asid_rvalue;
+wire [31:0] csr_tlbehi_rvalue;
 
 /* -------------------  Regfile Interface ------------------- */
 
@@ -150,8 +118,6 @@ always @(posedge clk) begin
     end
 end
 
-
-
 /* -------------------  BUS ------------------- */
 
 always @(posedge clk) begin
@@ -160,7 +126,9 @@ always @(posedge clk) begin
     end
 end
 
-assign {ws_tlb_refetch ,  //197
+assign {s1_index       ,  //199
+        tlbsrch_hit    ,  //198
+        ws_tlb_refetch ,  //197
         inst_tlbsrch   ,  //196
         inst_tlbrd     ,  //195
         inst_tlbwr     ,  //194
@@ -184,7 +152,7 @@ assign {ws_tlb_refetch ,  //197
        } = ms_to_ws_bus_r;
 
 // WS forward bus
-assign ws_forward       = {ws_tlb_refetch && ws_valid , //123
+assign ws_forward       = {(inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb) && ws_valid , //123
                            has_int        , //122
                            ex_era         , //121:90
                            ex_entry       , //89:58
@@ -201,8 +169,8 @@ assign ws_forward       = {ws_tlb_refetch && ws_valid , //123
                           };
 
 // WS to FS bus
-assign ws_to_fs_bus     ={ws_tlb_refetch && ws_valid, //99
-                          ws_pc         , //98:67
+assign ws_to_fs_bus     ={(inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb) && ws_valid, //99
+                          ws_pc + 32'd4 , //98:67
                           has_int       , //66
                           ex_era        , //65:34
                           ex_entry      , //33:2
@@ -217,32 +185,11 @@ assign ws_to_es_bus     ={csr_asid_rvalue, //63:32
 /* -------------------  CSR Interface ------------------- */
 
 // assign ws_vaddr = ws_final_result;
-wire [31:0] csr_estat_rvalue;
-wire [31:0] csr_tlbidx_rvalue;
-wire [31:0] csr_tlbehi_rvalue;
-wire [31:0] csr_tlbelo0_rvalue;
-wire [31:0] csr_tlbelo1_rvalue;
-wire [31:0] csr_asid_rvalue;
-wire [31:0] csr_tlbrentry_rvalue;
-reg  [ 3:0] tlbfill_index;
-
-always @(posedge clk)begin
-    if(reset)begin
-        tlbfill_index <= 4'b0;
-    end
-    else if(inst_tlbfill & ws_valid) begin
-        if(tlbfill_index == 4'd15) begin
-            tlbfill_index <= 4'b0;
-        end
-        else begin
-            tlbfill_index <= tlbfill_index + 4'b1;
-        end
-    end
-end
 
 regcsr u_regcsr(
     .clk        (clk          ),
     .reset      (reset        ),
+    .ws_valid   (ws_valid     ),
     .csr_we     (ws_csr_we    ),
     .csr_num    (ws_csr_num   ),
     .csr_wmask  (ws_csr_wmask ),
@@ -259,53 +206,12 @@ regcsr u_regcsr(
     .wb_vaddr   (ws_vaddr     ),
     .counter    (counter      ),
     .counter_id (counter_id   ),
-    .inst_tlbsrch(inst_tlbsrch),
-    .inst_tlbrd (inst_tlbrd   ),
-    .r_e        (r_e&ws_valid ),
-    .r_vppn     (r_vppn       ),
-    .r_ps       (r_ps         ),
-    .r_asid     (r_asid       ),
-    .r_g        (r_g          ),
-    .r_ppn0     (r_ppn0       ),
-    .r_plv0     (r_plv0       ),
-    .r_mat0     (r_mat0       ),
-    .r_d0       (r_d0         ),
-    .r_v0       (r_v0         ),
-    .r_ppn1     (r_ppn1       ),
-    .r_plv1     (r_plv1       ),
-    .r_mat1     (r_mat1       ),
-    .r_d1       (r_d1         ),
-    .r_v1       (r_v1         ),
-    .csr_estat_rvalue(csr_estat_rvalue),
-    .csr_tlbidx_rvalue(csr_tlbidx_rvalue),
-    .csr_tlbehi_rvalue(csr_tlbehi_rvalue),
-    .csr_tlbelo0_rvalue(csr_tlbelo0_rvalue),
-    .csr_tlbelo1_rvalue(csr_tlbelo1_rvalue),
+    .tlbsrch_hit(tlbsrch_hit  ),
+    .csr_tlb_in (csr_tlb_in   ),
+    .csr_tlb_out(csr_tlb_out  ),
     .csr_asid_rvalue(csr_asid_rvalue),
-    .csr_tlbrentry_rvalue(csr_tlbrentry_rvalue)
+    .csr_tlbehi_rvalue(csr_tlbehi_rvalue)
 );
-
-assign we      = inst_tlbwr || inst_tlbfill;
-assign w_index = inst_tlbwr   ? csr_tlbidx_rvalue[3:0]:
-                 inst_tlbfill ? tlbfill_index[3:0]    : 4'b0;
-assign w_ps    = csr_tlbidx_rvalue[29:24];
-assign w_e     = (csr_estat_rvalue[21:16] == 6'h3f) || ~csr_tlbidx_rvalue[31];
-assign w_vppn  = csr_tlbehi_rvalue[31:13];
-assign w_v0    = csr_tlbelo0_rvalue [0];
-assign w_d0    = csr_tlbelo0_rvalue [1];
-assign w_plv0  = csr_tlbelo0_rvalue [3:2];
-assign w_mat0  = csr_tlbelo0_rvalue [5:4];
-assign w_ppn0  = csr_tlbelo0_rvalue [31:8];
-assign w_v1    = csr_tlbelo1_rvalue [0];
-assign w_d1    = csr_tlbelo1_rvalue [1];
-assign w_plv1  = csr_tlbelo1_rvalue [3:2];
-assign w_mat1  = csr_tlbelo1_rvalue [5:4];
-assign w_ppn1  = csr_tlbelo1_rvalue [31:8];
-assign w_g     = csr_tlbelo1_rvalue[6] & csr_tlbelo0_rvalue[6];
-assign w_asid  = csr_asid_rvalue[9:0];
-assign r_index = csr_tlbidx_rvalue[3:0];
-
-
 
 /* -------------------  Regfile Interface ------------------- */
 
@@ -321,7 +227,6 @@ assign ws_to_rf_bus = {rf_we   ,  //37:37
                       };
 
 /* -------------------  Exceptions ------------------- */
-
 assign final_ex = ws_valid & (ws_ex | ws_ertn_flush);
 assign fixed_ertn_flush = (ws_ecode == `ECODE_ERT) && ws_valid;
 assign back_ertn_flush = fixed_ertn_flush;
