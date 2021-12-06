@@ -42,7 +42,6 @@ wire        ws_ready_go;
 // MS to WS bus
 reg [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus_r;
 
-
 wire       ws_tlb_refetch;
 
 /* -------------------  CSR Interface ------------------- */
@@ -59,7 +58,6 @@ wire [31:0] counter_id;
 wire [31:0] ws_vaddr;
 wire [31:0] ws_final_result;
 
-wire        tlbsrch_hit;
 wire        ws_tlb_refetch;
 wire        inst_tlbsrch;
 wire        inst_tlbrd;
@@ -68,6 +66,10 @@ wire        inst_tlbfill;
 wire        inst_invtlb;
 wire [31:0] csr_asid_rvalue;
 wire [31:0] csr_tlbehi_rvalue;
+wire [31:0] csr_crmd_rvalue;
+wire [31:0] csr_dmw0_rvalue;
+wire [31:0] csr_dmw1_rvalue;
+wire [31:0] csr_tlbrentry_rvalue;
 
 /* -------------------  Regfile Interface ------------------- */
 
@@ -95,6 +97,8 @@ wire [31:0] ex_entry;
 wire [31:0] ex_era;
 wire        has_int;
 
+wire        es_tlb_refill_ex;
+wire        refill_ex;
 /* -------------------  Debug Interface ------------------- */
 
 // debug info generate
@@ -126,8 +130,8 @@ always @(posedge clk) begin
     end
 end
 
-assign {s1_index       ,  //199
-        tlbsrch_hit    ,  //198
+assign {es_tlb_refill_ex, //202
+        s1_index       ,  //201:198
         ws_tlb_refetch ,  //197
         inst_tlbsrch   ,  //196
         inst_tlbrd     ,  //195
@@ -169,7 +173,13 @@ assign ws_forward       = {(inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_inv
                           };
 
 // WS to FS bus
-assign ws_to_fs_bus     ={(inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb) && ws_valid, //99
+assign ws_to_fs_bus     ={refill_ex, //260
+                          csr_tlbrentry_rvalue, //259:228
+                          csr_asid_rvalue, //227:196
+                          csr_crmd_rvalue, //195:164
+                          csr_dmw0_rvalue, //163:132
+                          csr_dmw1_rvalue, //131:100
+                          (inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invtlb) && ws_valid, //99
                           ws_pc + 32'd4 , //98:67
                           has_int       , //66
                           ex_era        , //65:34
@@ -178,7 +188,10 @@ assign ws_to_fs_bus     ={(inst_tlbwr || inst_tlbrd || inst_tlbfill || inst_invt
                           fixed_ertn_flush   //0
                          };
 
-assign ws_to_es_bus     ={csr_asid_rvalue, //63:32
+assign ws_to_es_bus     ={csr_crmd_rvalue,
+                          csr_dmw0_rvalue,
+                          csr_dmw1_rvalue,
+                          csr_asid_rvalue, //63:32
                           csr_tlbehi_rvalue//31:0
                          };
 
@@ -197,6 +210,7 @@ regcsr u_regcsr(
     .csr_rvalue (ws_csr_rvalue), 
     .ertn_flush (ws_ertn_flush),
     .wb_ex      (final_ex     ), 
+    .refill_ex  (refill_ex    ),
     .wb_ecode   (ws_ecode     ),
     .wb_esubcode(ws_esubcode  ),
     .wb_pc      (ws_pc        ),
@@ -206,11 +220,14 @@ regcsr u_regcsr(
     .wb_vaddr   (ws_vaddr     ),
     .counter    (counter      ),
     .counter_id (counter_id   ),
-    .tlbsrch_hit(tlbsrch_hit  ),
     .csr_tlb_in (csr_tlb_in   ),
     .csr_tlb_out(csr_tlb_out  ),
-    .csr_asid_rvalue(csr_asid_rvalue),
-    .csr_tlbehi_rvalue(csr_tlbehi_rvalue)
+    .csr_asid_rvalue  (csr_asid_rvalue  ),
+    .csr_tlbehi_rvalue(csr_tlbehi_rvalue),
+    .csr_crmd_rvalue  (csr_crmd_rvalue  ),
+    .csr_dmw0_rvalue  (csr_dmw0_rvalue  ),
+    .csr_dmw1_rvalue  (csr_dmw1_rvalue  ),
+    .csr_tlbrentry_rvalue(csr_tlbrentry_rvalue)
 );
 
 /* -------------------  Regfile Interface ------------------- */
@@ -227,9 +244,9 @@ assign ws_to_rf_bus = {rf_we   ,  //37:37
                       };
 
 /* -------------------  Exceptions ------------------- */
-assign final_ex = ws_valid & (ws_ex | ws_ertn_flush);
+assign final_ex         = ws_valid & (ws_ex | ws_ertn_flush | refill_ex);
 assign fixed_ertn_flush = (ws_ecode == `ECODE_ERT) && ws_valid;
-assign back_ertn_flush = fixed_ertn_flush;
-assign back_ex         = final_ex;
-
+assign back_ertn_flush  = fixed_ertn_flush;
+assign back_ex          = final_ex;
+assign refill_ex        = ws_valid & es_tlb_refill_ex;
 endmodule

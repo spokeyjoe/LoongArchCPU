@@ -187,7 +187,7 @@ wire [31:0] ds_pc  ;
 wire        fs_esubcode;
 wire [ 5:0] fs_ecode;  
 wire        fs_ex;
-
+wire        fs_tlb_refill_ex;
 // WS to RF bus
 wire        rf_we   ;
 wire [ 4:0] rf_waddr;
@@ -525,7 +525,8 @@ always @(posedge clk) begin
     end
 end
 
-assign {ds_tlb_refetch,
+assign {fs_tlb_refill_ex,//73
+        ds_tlb_refetch,//72
         fs_esubcode ,  //71
         fs_ecode    ,  //70:65
         fs_ex       ,  //64
@@ -594,7 +595,8 @@ assign  {tlb_reflush,//123
 // ds_rdcnt signal is the combination of three inst signals
 assign ds_rdcnt     = {inst_rdcntid, inst_rdcntvh_w, inst_rdcntvl_w};
 
-assign ds_to_es_bus = {invop       ,  //267:263
+assign ds_to_es_bus = {fs_tlb_refill_ex,//268
+                       invop       ,  //267:263
                        ds_tlb_refetch,//262
                        inst_tlbsrch,  //261
                        inst_tlbrd  ,  //260

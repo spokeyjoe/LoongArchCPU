@@ -130,8 +130,8 @@ wire                         inst_tlbwr;
 wire [              97:0]    csr_tlb_in;
 wire [              97:0]    csr_tlb_out;
 assign csr_tlb_in = {//es_valid,    //96
-                     inst_tlbwr,
-                     inst_tlbfill,
+                     inst_tlbwr,  //97
+                     inst_tlbfill,//96
                      inst_tlbsrch,//95
                      inst_tlbrd,  //94
                      s1_found,    //93
@@ -171,6 +171,7 @@ assign {we,     //97
         w_v1,   //4
         r_index //3:0
        } = csr_tlb_out;
+
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -199,7 +200,19 @@ if_stage if_stage(
     .inst_sram_data_ok(inst_sram_data_ok),
     .inst_sram_wr   (inst_sram_wr   ),
     .es_ex_detected_to_fs(es_ex_detected_to_fs),
-    .ms_ex_detected (ms_ex_detected )
+    .ms_ex_detected (ms_ex_detected ),
+    // search port 0 (for fetch)
+    .s0_vppn       (s0_vppn        ),
+    .s0_va_bit12   (s0_va_bit12    ),
+    .s0_asid       (s0_asid        ),
+    .s0_found      (s0_found       ),
+    .s0_index      (s0_index       ),
+    .s0_ppn        (s0_ppn         ),  
+    .s0_ps         (s0_ps          ),
+    .s0_plv        (s0_plv         ),
+    .s0_mat        (s0_mat         ),
+    .s0_d          (s0_d           ),
+    .s0_v          (s0_v           )
 );
 // ID stage
 id_stage id_stage(
@@ -257,18 +270,6 @@ exe_stage exe_stage(
     .data_sram_wr   (data_sram_wr   ),
     .ms_to_es_ex    (ms_to_es_ex    ),
     .es_ex_detected_to_fs(es_ex_detected_to_fs),
-    // search port 0 (for fetch)
-    .s0_vppn       (s0_vppn        ),
-    .s0_va_bit12   (s0_va_bit12    ),
-    .s0_asid       (s0_asid        ),
-    .s0_found      (s0_fount       ),
-    .s0_index      (s0_index       ),
-    .s0_ppn        (s0_ppn         ),  
-    .s0_ps         (s0_ps          ),
-    .s0_plv        (s0_plv         ),
-    .s0_mat        (s0_mat         ),
-    .s0_d          (s0_d           ),
-    .s0_v          (s0_v           ),
     // search port 1 (for load/store)
     .s1_vppn       (s1_vppn        ),
     .s1_va_bit12   (s1_va_bit12    ),
@@ -350,7 +351,7 @@ tlb tlb(
     .s0_vppn       (s0_vppn        ),
     .s0_va_bit12   (s0_va_bit12    ),
     .s0_asid       (s0_asid        ),
-    .s0_found      (s0_fount       ),
+    .s0_found      (s0_found       ),
     .s0_index      (s0_index       ),
     .s0_ppn        (s0_ppn         ),  
     .s0_ps         (s0_ps          ),

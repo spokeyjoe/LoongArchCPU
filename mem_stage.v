@@ -78,7 +78,6 @@ wire        ms_csr_we;
 
 wire        ms_csr_block;
 
-wire        tlbsrch_hit;
 wire        inst_tlbsrch;
 wire        inst_tlbrd;
 wire        inst_tlbwr;
@@ -95,7 +94,7 @@ wire [ 5:0] ms_ecode;
 wire        ms_ex;
 wire        ms_ale_ex;
 
-
+wire        es_tlb_refill_ex;
 /* --------------  Abandon  -------------- */
 reg ms_abandon;
 
@@ -113,8 +112,6 @@ always @(posedge clk) begin
     end
 end
 
-
-
 /* -------------------  BUS ------------------- */
 
 always @(posedge clk) begin
@@ -123,8 +120,8 @@ always @(posedge clk) begin
     end
 end
 
-assign {s1_index       ,  //178
-        tlbsrch_hit    ,  //177
+assign {es_tlb_refill_ex, //181
+        s1_index       ,  //180:177
         ms_tlb_refetch ,  //176
         inst_tlbsrch   ,  //175
         inst_tlbrd     ,  //174
@@ -158,8 +155,8 @@ assign {s1_index       ,  //178
        } = es_to_ms_bus_r;
 
 // MS to WS bus
-assign ms_to_ws_bus = {s1_index       ,  //199
-                       tlbsrch_hit    ,  //198
+assign ms_to_ws_bus = {es_tlb_refill_ex, //202
+                       s1_index       ,  //201:198
                        ms_tlb_refetch ,  //197
                        inst_tlbsrch   ,  //196
                        inst_tlbrd     ,  //195
