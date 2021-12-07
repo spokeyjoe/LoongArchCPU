@@ -130,8 +130,8 @@ always @(posedge clk) begin
     end
 end
 
-assign {es_tlb_refill_ex, //202
-        s1_index       ,  //201:198
+assign {es_tlb_refill_ex, //198
+ //       s1_index       ,  //201:198
         ws_tlb_refetch ,  //197
         inst_tlbsrch   ,  //196
         inst_tlbrd     ,  //195

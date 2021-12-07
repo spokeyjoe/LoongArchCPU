@@ -84,7 +84,6 @@ wire        inst_tlbrd;
 wire        inst_tlbwr;
 wire        inst_tlbfill;
 wire        inst_invtlb;
-wire        s1_index;
 /* --------------  Exceptions  -------------- */
 
 wire        ms_inst_rdcntid;
@@ -121,10 +120,9 @@ always @(posedge clk) begin
     end
 end
 
-assign {badvaddr       ,  //214:183
-        es_mem_ex      ,  //182
-        es_tlb_refill_ex, //181
-        s1_index       ,  //180:177
+assign {badvaddr       ,  //210:179
+        es_mem_ex      ,  //178
+        es_tlb_refill_ex, //177
         ms_tlb_refetch ,  //176
         inst_tlbsrch   ,  //175
         inst_tlbrd     ,  //174
@@ -158,8 +156,7 @@ assign {badvaddr       ,  //214:183
        } = es_to_ms_bus_r;
 
 // MS to WS bus
-assign ms_to_ws_bus = {es_tlb_refill_ex, //202
-                       s1_index       ,  //201:198
+assign ms_to_ws_bus = {es_tlb_refill_ex, //198
                        ms_tlb_refetch ,  //197
                        inst_tlbsrch   ,  //196
                        inst_tlbrd     ,  //195

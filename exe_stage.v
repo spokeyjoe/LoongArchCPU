@@ -39,7 +39,7 @@ module exe_stage#(
     output                      s1_va_bit12,
     output [               9:0] s1_asid,
     input                       s1_found,
-    input  [$clog2(TLBNUM)-1:0] s1_index,
+//    input  [$clog2(TLBNUM)-1:0] s1_index,
     input  [              19:0] s1_ppn,
     input  [               5:0] s1_ps,
     input  [               1:0] s1_plv,
@@ -87,7 +87,7 @@ wire [31:0] csr_dmw1_rvalue;
 wire [31:0] csr_asid_rvalue;
 wire [31:0] csr_tlbehi_rvalue;
 
-wire        s1_index;
+
 
 wire csr_crmd_da = csr_crmd_rvalue[`CSR_CRMD_DA];
 wire csr_crmd_pg = csr_crmd_rvalue[`CSR_CRMD_PG];
@@ -277,10 +277,9 @@ assign  es_pc             //31 :0
         = ds_to_es_bus_r[31:0];
 
 // ES to MS bus
-assign es_to_ms_bus = {badvaddr       ,  //214:183
-                       es_mem_ex      ,  //182
-                       es_tlb_refill_ex, //181
-                       s1_index       ,  //180:177
+assign es_to_ms_bus = {badvaddr       ,  //210:179
+                       es_mem_ex      ,  //178
+                       es_tlb_refill_ex, //177
                        es_tlb_refetch ,  //176
                        inst_tlbsrch   ,  //175
                        inst_tlbrd     ,  //174

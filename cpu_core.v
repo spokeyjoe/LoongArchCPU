@@ -275,7 +275,7 @@ exe_stage exe_stage(
     .s1_va_bit12   (s1_va_bit12    ),
     .s1_asid       (s1_asid        ),
     .s1_found      (s1_found       ),
-    .s1_index      (s1_index       ),
+ //   .s1_index      (s1_index       ),
     .s1_ppn        (s1_ppn         ),
     .s1_ps         (s1_ps          ),
     .s1_plv        (s1_plv         ),
