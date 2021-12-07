@@ -477,8 +477,14 @@ always @(posedge clk) begin
     else if(inst_tlbrd && r_e) begin
         csr_tlbehi_vppn <= r_vppn;
     end
-    else if (wb_ex & ~ertn_flush & (wb_ecode == `ECODE_TLBR | `ECODE_PIL | `ECODE_PIS | `ECODE_PIF | `ECODE_PME |`ECODE_PPE)) 
+    else if (wb_ex & ~ertn_flush & (wb_ecode == `ECODE_TLBR || 
+                                    wb_ecode == `ECODE_PIL  || 
+                                    wb_ecode == `ECODE_PIS  || 
+                                    wb_ecode == `ECODE_PIF  || 
+                                    wb_ecode == `ECODE_PME  || 
+                                    wb_ecode == `ECODE_PPE)) begin
         csr_tlbehi_vppn <= wb_vaddr[31:13];
+    end
     else if(csr_we && csr_num == `CSR_TLBEHI) begin
         csr_tlbehi_vppn <= csr_wmask[`CSR_TLBEHI_VPPN] & csr_wvalue[`CSR_TLBEHI_VPPN]
                         | ~csr_wmask[`CSR_TLBEHI_VPPN] & csr_tlbehi_vppn;   

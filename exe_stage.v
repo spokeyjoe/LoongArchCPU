@@ -69,6 +69,7 @@ reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
 
 
 /*-------------------- Address translation --------------------*/
+wire [31:0] badvaddr;
 wire [31:0] vaddr;
 wire [31:0] paddr;
 wire [19:0] vpn         = vaddr[31:12];
@@ -145,12 +146,14 @@ wire [31:0] es_pc         ;
 alu u_alu(
     .clk        (clk          ),
     .reset      (reset        ),
-    .alu_op     (es_alu_op & {19{es_valid}}    ),
+    .alu_op     (es_alu_op    ),
     .alu_src1   (es_alu_src1  ),
     .alu_src2   (es_alu_src2  ),
     .alu_result (es_alu_result),
     .div_ready_go (alu_ready_go)
     );
+
+    //{19{es_valid}}    
 
 /* --------------  Counter  -------------- */
 
@@ -274,7 +277,9 @@ assign  es_pc             //31 :0
         = ds_to_es_bus_r[31:0];
 
 // ES to MS bus
-assign es_to_ms_bus = {es_tlb_refill_ex, //181
+assign es_to_ms_bus = {badvaddr       ,  //214:183
+                       es_mem_ex      ,  //182
+                       es_tlb_refill_ex, //181
                        s1_index       ,  //180:177
                        es_tlb_refetch ,  //176
                        inst_tlbsrch   ,  //175
@@ -384,11 +389,11 @@ assign es_final_result = es_inst_rdcntvh_w | es_inst_rdcntvl_w ? es_cnt_result :
 
 /* ------------------- Exceptions ------------------- */
 
-assign es_esubcode = es_adem_ex ? 1'b0 : ds_esubcode;
+assign es_esubcode = es_adem_ex ? 1'b1 : ds_esubcode;
 assign es_ex = ale_ex | es_tlb_load_invalid_ex | es_tlb_store_invalid_ex | es_tlb_modify_ex | es_tlb_ppe_ex | es_adem_ex | ds_ex | es_tlb_refill_ex;
 assign es_ecode = ale_ex ? `ECODE_ALE : 
                   es_tlb_refill_ex ? `ECODE_TLBR :
-                  es_tlb_load_invalid_ex ? `ECODE_PIF :
+                  es_tlb_load_invalid_ex ? `ECODE_PIL :
                   es_tlb_store_invalid_ex ? `ECODE_PIS : 
                   es_tlb_modify_ex ? `ECODE_PME :
                   es_tlb_ppe_ex ? `ECODE_PPE :
@@ -422,9 +427,9 @@ assign vaddr = es_alu_result;
 assign s1_vppn     = inst_invtlb ? es_rkd_value[31:13] :
                      inst_tlbsrch ? csr_tlbehi_rvalue[31:13] :
                      vpn[19:1];
-assign s1_asid     = inst_invtlb ? es_rkd_value[9:0]   : csr_asid_rvalue[9:0];
+assign s1_asid     = inst_invtlb ? es_rj_value[9:0]   : csr_asid_rvalue[9:0];
 assign s1_va_bit12 = inst_invtlb ? es_rkd_value[12]: 
-                     inst_tlbsrch ? 1'b0 : vpn[0];
+                     inst_tlbsrch ? 1'b0 : vpn[0]; 
 
 assign tlb_addr = (s1_ps == 6'd12) ? {s1_ppn[19:0], offset[11:0]} :
                                      {s1_ppn[19:10], offset[21:0]};
@@ -437,8 +442,8 @@ assign dmw0_hit = (csr_crmd_plv == 2'b00 && csr_dmw0_plv0   ||
 assign dmw1_hit = (csr_crmd_plv == 2'b00 && csr_dmw1_plv0   ||
                    csr_crmd_plv == 2'b11 && csr_dmw1_plv3 ) && (vaddr[31:29] == csr_dmw1_vseg); 
 
-assign dmw_addr = {32{dmw0_hit}} & {csr_dmw0_vseg, vaddr[28:0]} |
-                  {32{dmw1_hit}} & {csr_dmw1_vseg, vaddr[28:0]};
+assign dmw_addr = {32{dmw0_hit}} & {csr_dmw0_pseg, vaddr[28:0]} |
+                  {32{dmw1_hit}} & {csr_dmw1_pseg, vaddr[28:0]};
 
 // PADDR
 assign paddr = da_hit  ? vaddr    :
@@ -450,4 +455,14 @@ assign es_tlb_store_invalid_ex = ~da_hit & ~dmw_hit & es_mem_we & s1_found & ~s1
 assign es_tlb_modify_ex        = ~da_hit & ~dmw_hit & es_mem_we & s1_found & s1_v & ~es_tlb_ppe_ex & ~s1_d;
 assign es_tlb_ppe_ex           = ~da_hit & ~dmw_hit & (es_mem_we | es_res_from_mem) & s1_found & s1_v & csr_crmd_plv == 2'b11 && s1_plv == 2'b00;            
 assign es_adem_ex              = ~da_hit & ~dmw_hit & (es_mem_we | es_res_from_mem) & csr_crmd_plv == 2'b11 & vaddr[31];
+
+wire   es_mem_ex               = ~da_hit & ~dmw_hit & (es_mem_we | es_res_from_mem) & ~s1_found ||
+                                 es_tlb_load_invalid_ex                                         ||
+                                 es_tlb_store_invalid_ex                                        ||
+                                 es_tlb_modify_ex                                               ||
+                                 es_tlb_ppe_ex                                                  ||
+                                 es_adem_ex                                                     ||
+                                 ale_ex;
+
+assign badvaddr                = ds_ex ? es_pc : es_alu_result;
 endmodule

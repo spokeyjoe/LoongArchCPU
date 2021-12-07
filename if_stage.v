@@ -249,7 +249,7 @@ assign fs_ecode        = adef_ex ? `ECODE_ADE :
                          fs_tlb_invalid_ex ? `ECODE_PIF  : 
                          fs_tlb_ppe_ex ? `ECODE_PPE : 6'b0;
 assign fs_ex           = adef_ex | fs_tlb_invalid_ex | fs_tlb_ppe_ex | fs_tlb_refill_ex;
-assign adef_ex         = ~(final_nextpc[1:0] == 2'b00);
+assign adef_ex         = ~(final_nextpc[1:0] == 2'b00 && final_nextpc[31] == 1'b0);
 
 
 // Waiting for response state

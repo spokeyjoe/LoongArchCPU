@@ -471,7 +471,6 @@ assign csr_re       = inst_csrrd | inst_csrwr | inst_csrxchg | inst_rdcntid && ~
 assign csr_wmask    = {32{inst_csrxchg}} & rj_value | {32{~inst_csrxchg}};
 assign csr_wvalue   = rkd_value;
 
-
 /* --------------  Adder for comparison -------------- */
 
 assign {sign_bit, out} = {1'b0, rj_value} + {1'b1, ~rkd_value} + 33'd1;

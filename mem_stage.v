@@ -39,6 +39,7 @@ wire        ms_ready_go;
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
 
 wire        ms_tlb_refetch;
+wire        es_mem_ex;
 
 /* --------------  MEM related  -------------- */
 wire        ms_op_st_w;
@@ -66,7 +67,7 @@ wire [7:0]  mem_byte_data;
 wire [15:0] mem_halfword_data;
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
-wire [31:0] ms_vaddr;
+wire [31:0] badvaddr;
 
 
 /* --------------  CSR instructions  -------------- */
@@ -99,7 +100,7 @@ wire        es_tlb_refill_ex;
 reg ms_abandon;
 
 /* --------------  Handshaking signals -------------- */
-assign ms_ready_go    = ms_op_mem ? (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon || ms_ale_ex : 1'b1;
+assign ms_ready_go    = ms_op_mem ? (data_sram_data_ok || data_sram_rdata_buf_valid) && ~ms_abandon || es_mem_ex : 1'b1;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 
@@ -120,7 +121,9 @@ always @(posedge clk) begin
     end
 end
 
-assign {es_tlb_refill_ex, //181
+assign {badvaddr       ,  //214:183
+        es_mem_ex      ,  //182
+        es_tlb_refill_ex, //181
         s1_index       ,  //180:177
         ms_tlb_refetch ,  //176
         inst_tlbsrch   ,  //175
@@ -164,7 +167,7 @@ assign ms_to_ws_bus = {es_tlb_refill_ex, //202
                        inst_tlbfill   ,  //193
                        inst_invtlb    ,  //192
                        ms_inst_rdcntid,  //191
-                       ms_vaddr       ,  //190:159
+                       badvaddr       ,  //190:159
                        ms_ertn_flush  ,  //158
                        ms_esubcode    ,  //157
                        ms_ecode       ,  //156:151
@@ -199,7 +202,6 @@ assign ms_forward = {ms_res_from_mem,  //59
 
 /* --------------  MEM read interface  -------------- */
 
-assign ms_vaddr = ms_alu_result;
 
 // SRAM data buffer
 reg  [32:0] data_sram_rdata_buf;
