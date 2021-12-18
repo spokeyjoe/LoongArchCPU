@@ -54,17 +54,24 @@ localparam WRITE_BUFFER_WRITE = 2'b10;
 reg [1:0] write_buffer_state;
 reg [1:0] write_buffer_next_state;
 
+wire write_idle  = write_buffer_state == WRITE_BUFFER_IDLE;
+wire write_write = write_buffer_state == WRITE_BUFFER_WRITE;
+/*-------------------- Dirty Bit Table --------------------*/
+reg [255:0] D_way0;
+reg [255:0] D_way1;
+
+wire [7:0] dirty_index;
 
 /*-------------------- Cache RAM Interface --------------------*/
 
-wire [ 7:0] tag_v_way0_addr;
-wire [20:0] tag_v_way0_wdata;
-wire [20:0] tag_v_way0_rdata;
-wire        tag_v_way0_wen;
-wire [ 7:0] tag_v_way1_addr;
-wire [20:0] tag_v_way1_wdata;
-wire [20:0] tag_v_way1_rdata;
-wire        tag_v_way1_wen;
+wire [ 7:0] tagv_way0_addr;
+wire [20:0] tagv_way0_wdata;
+wire [20:0] tagv_way0_rdata;
+wire        tagv_way0_wen;
+wire [ 7:0] tagv_way1_addr;
+wire [20:0] tagv_way1_wdata;
+wire [20:0] tagv_way1_rdata;
+wire        tagv_way1_wen;
 
 wire [ 7:0] bank0_way0_addr;
 wire [31:0] bank0_way0_wdata;
@@ -100,76 +107,83 @@ wire [31:0] bank3_way1_wdata;
 wire [31:0] bank3_way1_rdata;
 wire [ 3:0] bank3_way1_wen;
 
-TAGV_RAM tag_v_way0(
-    .addra(tag_v_way0_addr),
+TAGV_RAM tagv_way0(
+    .addra(tagv_way0_addr),
     .clka(clk_g),
-    .dina(tag_v_way0_wdata),
-    .douta(tag_v_way0_rdata),
-    .wea(tag_v_way0_wen)
+    .dina(tagv_way0_wdata),
+    .douta(tagv_way0_rdata),
+    .wea(tagv_way0_wen)
     );
-TAGV_RAM tag_v_way1(
-    .addra(tag_v_way1_addr),
+TAGV_RAM tagv_way1(
+    .addra(tagv_way1_addr),
     .clka(clk_g),
-    .dina(tag_v_way1_wdata),
-    .douta(tag_v_way1_rdata),
-    .wea(tag_v_way1_wen)
+    .dina(tagv_way1_wdata),
+    .douta(tagv_way1_rdata),
+    .wea(tagv_way1_wen)
     );
-BANK_RAM bank0_way_0(
-    .addra(bank0_way_0_addr),
+BANK_RAM bank0_way0(
+    .addra(bank0_way0_addr),
     .clka(clk_g),
-    .dina(bank0_way_0_wdata),
-    .douta(bank0_way_0_rdata),
-    .wea(bank0_way_0_wen)
+    .dina(bank0_way0_wdata),
+    .douta(bank0_way0_rdata),
+    .wea(bank0_way0_wen)
     );
-BANK_RAM bank1_way_0(
-    .addra(bank1_way_0_addr),
+BANK_RAM bank1_way0(
+    .addra(bank1_way0_addr),
     .clka(clk_g),
-    .dina(bank1_way_0_wdata),
-    .douta(bank1_way_0_rdata),
-    .wea(bank1_way_0_wen)
+    .dina(bank1_way0_wdata),
+    .douta(bank1_way0_rdata),
+    .wea(bank1_way0_wen)
     );
-BANK_RAM bank2_way_0(
-    .addra(bank2_way_0_addr),
+BANK_RAM bank2_way0(
+    .addra(bank2_way0_addr),
     .clka(clk_g),
-    .dina(bank2_way_0_wdata),
-    .douta(bank2_way_0_rdata),
-    .wea(bank2_way_0_wen)
+    .dina(bank2_way0_wdata),
+    .douta(bank2_way0_rdata),
+    .wea(bank2_way0_wen)
     );
-BANK_RAM bank3_way_0(
-    .addra(bank3_way_0_addr),
+BANK_RAM bank3_way0(
+    .addra(bank3_way0_addr),
     .clka(clk_g),
-    .dina(bank3_way_0_wdata),
-    .douta(bank3_way_0_rdata),
-    .wea(bank3_way_0_wen)
+    .dina(bank3_way0_wdata),
+    .douta(bank3_way0_rdata),
+    .wea(bank3_way0_wen)
     );
-BANK_RAM bank0_way_1(
-    .addra(bank0_way_1_addr),
+BANK_RAM bank0_way1(
+    .addra(bank0_way1_addr),
     .clka(clk_g),
-    .dina(bank0_way_1_wdata),
-    .douta(bank0_way_1_rdata),
-    .wea(bank0_way_1_wen)
+    .dina(bank0_way1_wdata),
+    .douta(bank0_way1_rdata),
+    .wea(bank0_way1_wen)
     );
-BANK_RAM bank1_way_1(
-    .addra(bank1_way_1_addr),
+BANK_RAM bank1_way1(
+    .addra(bank1_way1_addr),
     .clka(clk_g),
-    .dina(bank1_way_1_wdata),
-    .douta(bank1_way_1_rdata),
-    .wea(bank1_way_1_wen)
+    .dina(bank1_way1_wdata),
+    .douta(bank1_way1_rdata),
+    .wea(bank1_way1_wen)
     );
-BANK_RAM bank2_way_1(
-    .addra(bank2_way_1_addr),
+BANK_RAM bank2_way1(
+    .addra(bank2_way1_addr),
     .clka(clk_g),
-    .dina(bank2_way_1_wdata),
-    .douta(bank2_way_1_rdata),
-    .wea(bank2_way_1_wen)
+    .dina(bank2_way1_wdata),
+    .douta(bank2_way1_rdata),
+    .wea(bank2_way1_wen)
     );
-BANK_RAM bank3_way_1(
-    .addra(bank3_way_1_addr),
+BANK_RAM bank3_way1(
+    .addra(bank3_way1_addr),
     .clka(clk_g),
-    .dina(bank3_way_1_wdata),
-    .douta(bank3_way_1_rdata),
-    .wea(bank3_way_1_wen)
+    .dina(bank3_way1_wdata),
+    .douta(bank3_way1_rdata),
+    .wea(bank3_way1_wen)
     );
+
+/*-------------------- Bank Selection --------------------*/
+wire bank0_hit;
+wire bank1_hit;
+wire bank2_hit;
+wire bank3_hit;
+
 
 /*-------------------- Request Buffer --------------------*/
 
@@ -201,10 +215,23 @@ wire [ 31:0] way0_load_word;
 wire [ 31:0] way1_load_word;
 wire [ 31:0] load_res;
 wire [127:0] replace_data;
+wire [ 19:0] replace_tag;
+reg  [127:0] replace_data_r;
+reg  [ 19:0] replace_tag_r;
 
 /*-------------------- Miss Buffer --------------------*/
 
-wire replace_way = pseudo_random_23[0];
+reg replace_way_r;
+
+// Generate a pseudo random number to choose **replaced way**
+always @(posedge clk_g) begin
+    if (~resetn) begin
+        replace_way_r <= 1'b0;   
+    end
+    else if (main_lookup && main_next_state == MAIN_MISS) begin
+        replace_way_r <= pseudo_random_23[0];
+    end
+end
 
 reg [1:0] num_ret_data;
 
@@ -220,10 +247,10 @@ wire  [ 19:0] way1_tag;
 wire  [127:0] way0_data;
 wire  [127:0] way1_data;
 
-assign way0_v = tag_v_way0_rdata[0];
-assign way1_v = tag_v_way1_rdata[0];
-assign way0_tag = tag_v_way0_rdata[20:1];
-assign way1_tag = tag_v_way1_rdata[20:1];
+assign way0_v = tagv_way0_rdata[0];
+assign way1_v = tagv_way1_rdata[0];
+assign way0_tag = tagv_way0_rdata[20:1];
+assign way1_tag = tagv_way1_rdata[20:1];
 assign way0_data= {bank3_way0_rdata, bank2_way0_rdata,
                     bank1_way0_rdata, bank0_way0_rdata
                     };
@@ -298,7 +325,10 @@ always @(*) begin
     endcase
 end
 
+
+
 /*-------------------- WRITE BUFFER FSM --------------------*/
+wire hit_write = cache_hit && rq_op_r;
 
 always @(posedge clk_g) begin
     if(~resetn) begin
@@ -330,6 +360,52 @@ always @(*) begin
     endcase
 end
 
+/*-------------------- NOT IDLE STATE --------------------*/
+reg not_idle;
+
+always @(posedge clk_g) begin
+    if (~resetn) begin
+        not_idle <= 1'b0;        
+    end
+    else if (not_idle && data_ok) begin
+        not_idle <= 1'b0;
+    end
+    else if (main_idle && valid) begin
+        not_idle <= 1'b1;
+    end
+end
+
+/*-------------------- Bank Selection --------------------*/
+
+assign bank0_hit = wr_offset_r[3:2] == 2'b00;
+assign bank1_hit = wr_offset_r[3:2] == 2'b01;
+assign bank2_hit = wr_offset_r[3:2] == 2'b10;
+assign bank3_hit = wr_offset_r[3:2] == 2'b11;
+
+/*-------------------- Dirty Bit Table --------------------*/
+
+assign dirty_index = not_idle ? rq_index_r :
+                     valid    ? index      :
+                                8'b0;
+
+always @ (posedge clk_g) begin
+    if(!resetn) begin
+        D_way0 <= 255'b0;
+        D_way1 <= 255'b0;
+    end 
+    else if(main_lookup && reg_op)begin
+        if(way0_hit)
+            D_way0[dirty_index] <= 1;
+        else if(way1_hit)
+            D_way1[dirty_index] <= 1;
+    end  
+    else if(main_refill)begin
+        if(replace_way_r == 0)
+            D_way0[dirty_index] <= reg_op;
+        else
+            D_way1[dirty_index] <= reg_op;
+    end
+end
 
 /*-------------------- Request Buffer --------------------*/
 always @(posedge clk_g) begin
@@ -349,12 +425,14 @@ always @ (posedge clk_g) begin
    if (!resetn)
        pseudo_random_23 <= (SIMULATION == 1'b1) ? {7'b1010101,16'h00FF} : {7'b1010101,led_r_n};
    else
-       pseudo_random_23 <= {pseudo_random_23[21:0],pseudo_random_23[22] ^ pseudo_random_23[17]};
+       pseudo_random_23 <= {pseudo_random_23[21:0], pseudo_random_23[22] ^ pseudo_random_23[17]};
 end
 
 /*-------------------- Miss Buffer --------------------*/
 always @(posedge clk_g) begin
-    if (rd_rdy)
+    if (!resetn)
+        num_ret_data <= 2'b00;
+    else if (rd_rdy)
         num_ret_data <= 2'b00;
     else if (ret_valid)
         num_ret_data <= num_ret_data + 1;
@@ -364,9 +442,17 @@ end
 assign way0_load_word  = way0_data[pa[3:2]*32 +: 32];
 assign way1_load_word  = way1_data[pa[3:2]*32 +: 32];
 assign load_res = {32{way0_hit}} & way0_load_word |
-                         {32{way1_hit}} & way1_load_word;
+                  {32{way1_hit}} & way1_load_word;
 
-assign replace_data   = replace_way ? way1_data : way0_data;
+assign replace_data   = replace_way_r ? way1_data : way0_data;
+assign replace_tag    = replace_way_r ? way1_tag  : way0_tag;
+
+always @(posedge clk_g) begin
+    if (main_lookup) begin
+        replace_tag_r  <= replace_tag;
+        replace_data_r <= replace_data;
+    end
+end
 
 /*-------------------- Write Buffer --------------------*/
 always @(posedge clk_g) begin
@@ -387,6 +473,92 @@ assign addr_ok = main_idle   && main_next_state == MAIN_LOOKUP ||
                  main_lookup && main_next_state == MAIN_LOOKUP;
 assign data_ok = main_lookup && main_next_state == MAIN_IDLE   ||
                  main_lookup && main_next_state == MAIN_LOOKUP ||
-                 main_refill && ret_valid && ret_valid;
+                 main_refill && ret_valid && ret_last;
 
+/*-------------------- AXI Interface --------------------*/
+
+assign rd_req = main_replace;
+assign rd_type = 3'b100;
+assign rd_addr = {rq_tag_r, rq_index_r, 4'b0000};
+
+reg wr_req_r;
+
+// Replaced Cache block is dirty
+// It's real *natural* language programming LOL
+wire replaced_cache_is_dirty = D_way0[dirty_index] && ~replace_way_r ||
+                               D_way1[dirty_index] && replace_way_r;
+
+always @(posedge clk_g) begin
+    if (~resetn) begin
+        wr_req_r <= 1'b0;        
+    end
+    else if (main_lookup && main_next_state == MAIN_MISS && replaced_cache_is_dirty) begin
+        wr_req_r <= 1'b1;
+    end
+    else if (wr_rdy)
+        wr_req_r <= 1'b0;
+end
+
+assign wr_req = wr_req_r;
+assign wr_type = 3'b100;
+assign wr_addr = {replace_tag_r, rq_index_r, 4'b0000};
+assign wr_data = replace_data_r;
+assign wr_wstrb = 4'hf;
+
+assign tagv_way0_addr = not_idle ? rq_index_r :
+                        valid    ? index      :
+                                   8'b0;
+assign tagv_way1_addr  = tagv_way0_addr;
+assign tagv_way0_wen   = main_refill && ~replace_way_r;
+assign tagv_way1_wen   = main_refill && replace_way_r;
+assign tagv_way0_wdata = {rq_tag_r, 1'b1};
+assign tagv_way1_wdata = {rq_tag_r, 1'b1};
+
+assign bank0_way0_addr = main_idle ? index : rq_index_r;
+assign bank1_way0_addr = bank0_way0_addr;
+assign bank2_way0_addr = bank0_way0_addr;
+assign bank3_way0_addr = bank0_way0_addr;
+assign bank0_way1_addr = bank0_way0_addr;
+assign bank1_way1_addr = bank0_way0_addr;
+assign bank2_way1_addr = bank0_way0_addr;
+assign bank3_way1_addr = bank0_way0_addr;
+
+assign bank0_way0_wen  = (write_write && way0_hit && bank0_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b00 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+assign bank1_way0_wen  = (write_write && way0_hit && bank1_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b01 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+assign bank2_way0_wen  = (write_write && way0_hit && bank2_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b10 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+assign bank3_way0_wen  = (write_write && way0_hit && bank3_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b11 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+assign bank0_way1_wen  = (write_write && way1_hit && bank0_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b00 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+assign bank1_way1_wen  = (write_write && way1_hit && bank1_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b01 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+assign bank2_way1_wen  = (write_write && way1_hit && bank2_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b10 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+assign bank3_way1_wen  = (write_write && way1_hit && bank3_hit) ? wr_wstrb : 
+                         (main_refill && num_ret_data == 2'b11 && ret_valid && ~replace_way_r) ? 4'hf : 4'h0;
+
+wire [31:0] refill_data = {32{rq_wstrb_r == 4'b0000}} & ret_data                            |
+                          {32{rq_wstrb_r == 4'b0001}} & {ret_data[31:8], rq_wdata_r[7:0]}   |
+                          {32{rq_wstrb_r == 4'b0011}} & {ret_data[31:16], rq_wdata_r[15:0]} |
+                          {32{rq_wstrb_r == 4'b0111}} & {ret_data[31:24], rq_wdata_r[23:0]} |
+                          {32{rq_wstrb_r == 4'b1111}} & rq_wdata_r                          |
+                          {32{rq_wstrb_r == 4'b1110}} & {rq_wdata_r[31:8], ret_data[7:0]}   |
+                          {32{rq_wstrb_r == 4'b1100}} & {rq_wdata_r[31:16], ret_data[15:0]} |
+                          {32{rq_wstrb_r == 4'b1000}} & {rq_wdata_r[31:24], ret_data[23:0]};
+
+assign bank0_way0_wdata = write_write ? wr_wdata_r :
+                          main_refill ? (rq_offset_r[3:2] == 2'b00) ? refill_data : ret_data : 32'b0;
+assign bank1_way0_wdata = write_write ? wr_wdata_r :
+                          main_refill ? (rq_offset_r[3:2] == 2'b01) ? refill_data : ret_data : 32'b0;
+assign bank2_way0_wdata = write_write ? wr_wdata_r :
+                          main_refill ? (rq_offset_r[3:2]== 2'b10) ? refill_data : ret_data : 32'b0;
+assign bank3_way0_wdata = write_write ? wr_wdata_r :
+                          main_refill ? (rq_offset_r[3:2] == 2'b11) ? refill_data : ret_data : 32'b0;
+assign bank0_way1_wdata = bank0_way0_wdata;
+assign bank1_way1_wdata = bank1_way0_wdata;
+assign bank2_way1_wdata = bank2_way0_wdata;
+assign bank3_way1_wdata = bank3_way0_wdata;
 endmodule
