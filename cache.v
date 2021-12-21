@@ -228,31 +228,10 @@ wire replace_way;
 
 /*-------------------- Miss Buffer --------------------*/
 
-reg replace_way_r;
-reg rq_replace_way;
-// Generate a pseudo random number to choose **replaced way**
-
-/*always @(posedge clk_g) begin
-    if (~resetn) begin
-        replace_way_r <= 1'b0;   
-    end
-    else if (main_lookup && main_next_state == MAIN_MISS) begin
-        replace_way_r <= pseudo_random_23[0];
-    end
-end*/
-
-//这什么？？？
-always @(posedge clk_g) begin
-    if (~resetn) begin
-        replace_way_r <= 1'b0;
-    end else begin
-        replace_way_r <= ~replace_way_r;
-    end
-end
-
-assign replace_way = rq_replace_way;
+reg rq_replace_way_r;
 reg [1:0] num_ret_data;
-
+// Generate a pseudo random number to choose **replaced way**
+assign replace_way = rq_replace_way_r;
 
 /*-------------------- LFSR --------------------*/
 reg [22:0] pseudo_random_23;
@@ -349,7 +328,6 @@ end
 
 
 /*-------------------- WRITE BUFFER FSM --------------------*/
-wire hazard;
 wire hit_write = main_lookup && cache_hit && rq_op_r;
 
 always @(posedge clk_g) begin
@@ -412,14 +390,14 @@ assign dirty_index = not_idle ? rq_index_r :
 
 always @ (posedge clk_g) begin
     if(!resetn) begin
-        D_way0 <= 255'b0;
-        D_way1 <= 255'b0;
+        D_way0 <= 256'b0;
+        D_way1 <= 256'b0;
     end 
     else if(main_lookup && rq_op_r)begin
         if(way0_hit)
-            D_way0[dirty_index] <= 1;
+            D_way0[dirty_index] <= 1'b1;
         else if(way1_hit)
-            D_way1[dirty_index] <= 1;
+            D_way1[dirty_index] <= 1'b1;
     end  
     else if(main_refill)begin
         if(replace_way == 0)
@@ -441,13 +419,13 @@ always @(posedge clk_g) begin
     end
     else if (main_idle && main_next_state == MAIN_LOOKUP || 
         main_lookup && main_next_state == MAIN_LOOKUP) begin //only in these conditions, request can be accepted
-        rq_op_r     <= op;
-        rq_index_r  <= index;
-        rq_tag_r    <= tag;
-        rq_offset_r <= offset;
-        rq_wstrb_r  <= wstrb;
-        rq_wdata_r  <= wdata;
-        rq_replace_way <= replace_way_r;
+        rq_op_r          <= op;
+        rq_index_r       <= index;
+        rq_tag_r         <= tag;
+        rq_offset_r      <= offset;
+        rq_wstrb_r       <= wstrb;
+        rq_wdata_r       <= wdata;
+        rq_replace_way_r <= pseudo_random_23[0];
     end
 end
 
@@ -481,7 +459,7 @@ assign replace_tag    = replace_way ? way1_tag  : way0_tag;
 always @(posedge clk_g) begin
     if (main_lookup & main_next_state == MAIN_MISS) begin
         replace_tag_r  <= replace_tag;
-        replace_data_r <= replace_data;
+        replace_data_r <= replace_data;//!!not used, write buffer not yet finished now
     end
 end
 
@@ -499,17 +477,12 @@ always @(posedge clk_g) begin
 end
 
 /*-------------------- CPU Interface --------------------*/
-/*assign hazard = (write_buffer_state == WRITE_BUFFER_WRITE && ~op && rq_offset_r == offset && valid) | 
-                (main_lookup && cache_hit && rq_op_r && valid && ~op && rq_offset_r == offset);*/
 
 assign rdata = main_lookup              ? load_res :
                main_refill && ret_valid ? rq_wdata_r : 
                                           32'b0;
 assign addr_ok = main_idle   && main_next_state == MAIN_LOOKUP ||
                  main_lookup && main_next_state == MAIN_LOOKUP;
-                 /*(main_idle && ~hazard) | 
-                 (main_lookup && cache_hit && op == 1'b1) | 
-                 (main_lookup && cache_hit && op == 1'b0 && ~hazard);*/
 assign data_ok = main_lookup && main_next_state == MAIN_IDLE   ||
                  main_lookup && main_next_state == MAIN_LOOKUP ||
                  main_refill && ret_valid && num_ret_data == rq_offset_r[3:2];
@@ -541,15 +514,14 @@ end
 assign wr_req = wr_req_r;
 assign wr_type = 3'b100;
 assign wr_addr = {replace_tag_r, rq_index_r, 4'b0000};
-assign wr_data = replace_data_r;
+assign wr_data = replace_data;
 assign wr_wstrb = 4'hf;
 
 assign tagv_way0_addr = write_write                    ? wr_index_r : 
                         main_next_state == MAIN_LOOKUP ? index : rq_index_r;
-
                         /*not_idle ? rq_index_r :
                         valid    ? index      :
-                                   8'b0;*/
+                                   8'b0;*///???
 assign tagv_way1_addr  = tagv_way0_addr;
 assign tagv_way0_wen   = main_refill && ~replace_way || write_write && ~wr_way_r;
 assign tagv_way1_wen   = main_refill && replace_way  || write_write && wr_way_r;
