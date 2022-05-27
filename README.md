@@ -1,6 +1,6 @@
 # UCAS_CAlab
 
-A LoongArch pipeline CPU.
+A 5-stage sequential LoongArch CPU built with Verilog.
 
 Project of Computer Architecture Lab @UCAS.
 
